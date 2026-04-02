@@ -1,16 +1,16 @@
 package com.github.alexmodguy.retrodamageindicators;
 
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.EntityTypeTags;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ambient.AmbientCreature;
 import net.minecraft.world.entity.animal.AbstractGolem;
-import net.minecraft.world.entity.animal.SnowGolem;
 import net.minecraft.world.entity.animal.WaterAnimal;
 import net.minecraft.world.entity.monster.Enemy;
+import net.minecraft.world.entity.monster.warden.Warden;
 import net.minecraft.world.entity.npc.Npc;
 import net.minecraft.world.entity.player.Player;
-import net.neoforged.neoforge.common.Tags;
 
 import java.util.Locale;
 
@@ -42,16 +42,19 @@ public enum MobTypes {
             return PLAYER;
         }
         if(entity instanceof LivingEntity living){
-            if(living.getType().is(Tags.EntityTypes.BOSSES)){
+            if (living.getType() == EntityType.ENDER_DRAGON || living.getType() == EntityType.WITHER || living instanceof Warden) {
                 return BOSS;
             }
-            if(living.getType().is(EntityTypeTags.AQUATIC)){
+            if (living instanceof WaterAnimal) {
                 return living instanceof Enemy ? WATER_MONSTER : WATER_ANIMAL;
-            }else if(living.getType().is(EntityTypeTags.UNDEAD)){
+            }
+            if (isInTag(living, EntityTypeTags.UNDEAD)) {
                 return living instanceof Enemy ? UNDEAD : UNDEAD_ANIMAL;
-            }else if(living.getType().is(EntityTypeTags.ARTHROPOD)){
+            }
+            if (isInTag(living, EntityTypeTags.ARTHROPOD)) {
                 return living instanceof WaterAnimal || living.canBreatheUnderwater() ? WATER_ARTHROPOD : living instanceof Enemy ? ARTHROPOD_MONSTER : ARTHROPOD;
-            }else if(living.getType().is(EntityTypeTags.ILLAGER)){
+            }
+            if (isInTag(living, EntityTypeTags.RAIDERS)) {
                 return ILLAGER;
             }
             if(living instanceof AbstractGolem){
@@ -75,5 +78,13 @@ public enum MobTypes {
 
     public ResourceLocation getTexture() {
         return texture;
+    }
+
+    /** 1.21.1: MobType was removed; equivalent check using entity type tags. */
+    private static boolean isInTag(LivingEntity living, net.minecraft.tags.TagKey<EntityType<?>> tagKey) {
+        return BuiltInRegistries.ENTITY_TYPE.getTag(tagKey)
+                .stream()
+                .flatMap(h -> h.stream())
+                .anyMatch(holder -> holder.value() == living.getType());
     }
 }

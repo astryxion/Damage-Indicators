@@ -1,19 +1,18 @@
 package com.github.alexmodguy.retrodamageindicators;
 
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.config.ModConfig;
-import net.neoforged.fml.loading.FMLEnvironment;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.common.NeoForge;
+import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.particle.v1.FabricParticleTypes;
+import net.minecraft.core.Registry;
+import net.minecraft.core.particles.SimpleParticleType;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 
-@Mod(RetroDamageIndicators.MODID)
-public class Loader {
+public class Loader implements ModInitializer {
 
-    public Loader(IEventBus modEventBus, ModContainer container) {
-        if (FMLEnvironment.dist.isClient()) {
-            NeoForge.EVENT_BUS.register(RetroDamageIndicators.class);
-            container.registerConfig(ModConfig.Type.CLIENT, Config.SPEC);
-        }
+    public static final SimpleParticleType DAMAGE_INDICATOR_PARTICLE = FabricParticleTypes.simple(false);
+
+    @Override
+    public void onInitialize() {
+        Registry.register(BuiltInRegistries.PARTICLE_TYPE, ResourceLocation.fromNamespaceAndPath(RetroDamageIndicatorsCommon.MODID, "damage_indicator"), DAMAGE_INDICATOR_PARTICLE);
     }
 }
