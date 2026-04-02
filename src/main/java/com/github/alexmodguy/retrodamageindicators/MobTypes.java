@@ -1,16 +1,14 @@
 package com.github.alexmodguy.retrodamageindicators;
 
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.tags.EntityTypeTags;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ambient.AmbientCreature;
 import net.minecraft.world.entity.animal.AbstractGolem;
-import net.minecraft.world.entity.animal.SnowGolem;
 import net.minecraft.world.entity.animal.WaterAnimal;
 import net.minecraft.world.entity.monster.Enemy;
+import net.minecraft.world.entity.monster.warden.Warden;
 import net.minecraft.world.entity.npc.Npc;
 import net.minecraft.world.entity.player.Player;
-import net.neoforged.neoforge.common.Tags;
 
 import java.util.Locale;
 
@@ -34,7 +32,7 @@ public enum MobTypes {
 
     private final ResourceLocation texture;
     MobTypes(){
-        texture = ResourceLocation.fromNamespaceAndPath("retrodamageindicators", "textures/gui/mob_types/" + name().toLowerCase(Locale.ROOT) + ".png");
+        texture = new ResourceLocation("retrodamageindicators:textures/gui/mob_types/" + name().toLowerCase(Locale.ROOT) + ".png");
     }
 
     public static MobTypes getTypeFor(Entity entity){
@@ -42,16 +40,16 @@ public enum MobTypes {
             return PLAYER;
         }
         if(entity instanceof LivingEntity living){
-            if(living.getType().is(Tags.EntityTypes.BOSSES)){
+            if (living.getType() == EntityType.ENDER_DRAGON || living.getType() == EntityType.WITHER || living instanceof Warden) {
                 return BOSS;
             }
-            if(living.getType().is(EntityTypeTags.AQUATIC)){
+            if(living.getMobType() == MobType.WATER){
                 return living instanceof Enemy ? WATER_MONSTER : WATER_ANIMAL;
-            }else if(living.getType().is(EntityTypeTags.UNDEAD)){
+            }else if(living.getMobType() == MobType.UNDEAD){
                 return living instanceof Enemy ? UNDEAD : UNDEAD_ANIMAL;
-            }else if(living.getType().is(EntityTypeTags.ARTHROPOD)){
+            }else if(living.getMobType() == MobType.ARTHROPOD){
                 return living instanceof WaterAnimal || living.canBreatheUnderwater() ? WATER_ARTHROPOD : living instanceof Enemy ? ARTHROPOD_MONSTER : ARTHROPOD;
-            }else if(living.getType().is(EntityTypeTags.ILLAGER)){
+            }else if(living.getMobType() == MobType.ILLAGER){
                 return ILLAGER;
             }
             if(living instanceof AbstractGolem){

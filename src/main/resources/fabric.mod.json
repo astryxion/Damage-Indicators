@@ -1,0 +1,32 @@
+{
+	"schemaVersion": 1,
+	"id": "retrodamageindicators",
+	"version": "${version}",
+	"name": "Retro Damage Indicators",
+	"description": "A mob health indicator on the in-game HUD that is reminiscent of modded days long gone...",
+	"authors": [
+		"Alexthe668"
+	],
+	"contact": {
+		"issues": "https://github.com/AlexModGuy/RetroDamageIndicators/issues"
+	},
+	"license": "LGPL-3.0-or-later",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.github.alexmodguy.retrodamageindicators.Loader"
+		],
+		"client": [
+			"com.github.alexmodguy.retrodamageindicators.RetroDamageIndicatorsClient"
+		]
+	},
+	"mixins": [
+		"retrodamageindicators.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.14.0",
+		"minecraft": "~1.20.1",
+		"java": ">=17",
+		"fabric-api": "*"
+	}
+}
