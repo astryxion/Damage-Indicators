@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "package": "com.astryxion.damageindicators.mixins",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "LivingEntityMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}
