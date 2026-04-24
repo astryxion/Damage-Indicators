@@ -4,15 +4,14 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.Gui;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
-import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.client.renderer.state.CameraRenderState;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
@@ -108,14 +107,14 @@ public class DamageIndicators {
     public static void onPreRenderGuiElement(RenderGuiLayerEvent.Pre event) {
         if (Config.INSTANCE.hudIndicatorEnabled.get() && Minecraft.getInstance().screen == null) {
 
-            if (event.getName().equals(VanillaGuiLayers.BOSS_OVERLAY) && damageIndicatorEntity != null) {
+            if (event.getName().equals(VanillaGuiLayers.BOSS_OVERLAY) && damageIndicatorEntity != null && damageIndicatorEntity.isAlive()) {
                 float entityMaxHealth = damageIndicatorEntity.getMaxHealth();
                 float entityHealth = Math.min(Config.INSTANCE.hpBarAnimated.get() ? displayedHealth : damageIndicatorEntity.getHealth(), entityMaxHealth);
                 float healthRatio = entityMaxHealth <= 0.0F ? 0.0F : entityHealth / entityMaxHealth;
                 float scale = Config.INSTANCE.hudIndicatorSize.get().floatValue();
                 int xOffset = Config.INSTANCE.hudIndicatorAlignLeft.get() ? Config.INSTANCE.hudIndicatorPositionX.get() : event.getGuiGraphics().guiWidth() - (int) (208 * scale) - Config.INSTANCE.hudIndicatorPositionX.get();
                 int yOffset = Config.INSTANCE.hudIndicatorAlignTop.get() ? Config.INSTANCE.hudIndicatorPositionY.get() : event.getGuiGraphics().guiHeight() - (int) (78 * scale) - Config.INSTANCE.hudIndicatorPositionY.get();
-                if (Minecraft.getInstance().gui instanceof Gui forgeGui) {
+                {
                     int bossBars = 0;
                     if (Config.INSTANCE.hudIndicatorAlignTop.get()) {
                         if (bossBars > 0) {
@@ -224,7 +223,7 @@ public class DamageIndicators {
                 pose.translate(healthOffsetX, healthOffsetY);
                 pose.scale(healthScale, healthScale);
                 pose.translate(-firstHalfWidth, 0);
-                event.getGuiGraphics().text(Minecraft.getInstance().font, healthComponent, 0, 0, healthColor, Config.INSTANCE.hudHealthTextOutline.get());
+                event.getGuiGraphics().drawString(Minecraft.getInstance().font, healthComponent, 0, 0, healthColor, Config.INSTANCE.hudHealthTextOutline.get());
                 pose.popMatrix();
 
                 // name text
@@ -239,7 +238,7 @@ public class DamageIndicators {
                 pose.translate(nameOffsetX, nameOffsetY);
                 pose.scale(nameScale, nameScale);
                 pose.translate(-nameWidth / 2F, 0);
-                event.getGuiGraphics().text(Minecraft.getInstance().font, nameComponent, 0, 0, nameColor, Config.INSTANCE.hudNameTextOutline.get());
+                event.getGuiGraphics().drawString(Minecraft.getInstance().font, nameComponent, 0, 0, nameColor, Config.INSTANCE.hudNameTextOutline.get());
                 pose.popMatrix();
 
                 // mod source text
@@ -256,7 +255,7 @@ public class DamageIndicators {
                     pose.translate(modSourceX, modSourceY);
                     pose.scale(modSourceScale, modSourceScale);
                     pose.translate(-modSourceWidth / 2F, 0);
-                    event.getGuiGraphics().text(Minecraft.getInstance().font, modSourceComponent, 0, 0, modSourceColor, false);
+                    event.getGuiGraphics().drawString(Minecraft.getInstance().font, modSourceComponent, 0, 0, modSourceColor, false);
                     pose.popMatrix();
                 }
 
@@ -303,7 +302,8 @@ public class DamageIndicators {
                 if (d2 < pickDistance) {
                     if (entity instanceof LivingEntity living && living.isAlive() && !(living instanceof ArmorStand)) {
                         found = (LivingEntity) entity;
-                    } else if (entity instanceof PartEntity<?> partEntity && partEntity.getParent() instanceof LivingEntity living) {
+                    } else if (entity instanceof PartEntity<?> partEntity && partEntity.getParent() instanceof LivingEntity living
+                            && living.isAlive() && !(living instanceof ArmorStand)) {
                         found = living;
                     }
                 }
@@ -324,11 +324,6 @@ public class DamageIndicators {
                 }
                 lastKnownHealth = currentHealth;
 
-                // animate health bar
-                float speed = Config.INSTANCE.hpBarAnimationSpeed.get().floatValue();
-                displayedHealth += (currentHealth - displayedHealth) * speed;
-                if (Math.abs(displayedHealth - currentHealth) < 0.05f) displayedHealth = currentHealth;
-
                 damageIndicatorEntity = found;
                 currentMobType = MobTypes.getTypeFor(found);
                 resetDamageIndicatorEntityIn = Config.INSTANCE.hudLingerTime.get();
@@ -342,6 +337,30 @@ public class DamageIndicators {
                 displayedHealth = 0f;
                 lastKnownHealth = -1f;
                 resetDamageIndicatorEntityIn = 0;
+            }
+
+            // Keep displayed HP in sync with the entity even while lingering (e.g. lethal hit: actual HP hits 0
+            // before we stop targeting, otherwise animated HP can stick at ~1.0 over a dead mob).
+            if (damageIndicatorEntity != null) {
+                if (!damageIndicatorEntity.isAlive()) {
+                    damageIndicatorEntity = null;
+                    currentModSource = "";
+                    displayedHealth = 0f;
+                    lastKnownHealth = -1f;
+                    resetDamageIndicatorEntityIn = 0;
+                    damageFlashTicks = 0;
+                } else {
+                    float targetHealth = damageIndicatorEntity.getHealth();
+                    if (Config.INSTANCE.hpBarAnimated.get()) {
+                        float speed = Config.INSTANCE.hpBarAnimationSpeed.get().floatValue();
+                        displayedHealth += (targetHealth - displayedHealth) * speed;
+                        if (Math.abs(displayedHealth - targetHealth) < 0.05f) {
+                            displayedHealth = targetHealth;
+                        }
+                    } else {
+                        displayedHealth = targetHealth;
+                    }
+                }
             }
 
             if (damageFlashTicks > 0) damageFlashTicks--;
@@ -360,7 +379,7 @@ public class DamageIndicators {
     }
 
     @SubscribeEvent
-    public static void onRenderLevel(RenderLevelStageEvent.AfterOpaqueFeatures event) {
+    public static void onRenderLevel(RenderLevelStageEvent.AfterOpaqueBlocks event) {
         if (activeDamageTexts.isEmpty() || !Config.INSTANCE.damageParticlesEnabled.get()) return;
 
         CameraRenderState cameraState = event.getLevelRenderState().cameraRenderState;
@@ -402,7 +421,7 @@ public class DamageIndicators {
      * but strips name tags, leashes, and fire so the HUD portrait does not show extra quads (e.g. a gray nameplate slab) on the model.
      */
     private static void extractHudEntityInInventoryFollowsMouse(
-            GuiGraphicsExtractor graphics,
+            GuiGraphics graphics,
             int x0,
             int y0,
             int x1,
@@ -421,7 +440,7 @@ public class DamageIndicators {
     }
 
     private static void renderHudEntityInInventoryFollowsAngle(
-            GuiGraphicsExtractor graphics,
+            GuiGraphics graphics,
             int x0,
             int y0,
             int x1,
@@ -451,19 +470,19 @@ public class DamageIndicators {
         }
 
         Vector3f translation = new Vector3f(0.0F, renderState.boundingBoxHeight / 2.0F + offsetY, 0.0F);
-        graphics.entity(renderState, size, translation, rotation, xRotation, x0, y0, x1, y1);
+        graphics.submitEntityRenderState(renderState, size, translation, rotation, xRotation, x0, y0, x1, y1);
     }
 
     private static EntityRenderState createHudPortraitRenderState(LivingEntity entity) {
         EntityRenderDispatcher entityRenderDispatcher = Minecraft.getInstance().getEntityRenderDispatcher();
         EntityRenderer<? super LivingEntity, ?> renderer = entityRenderDispatcher.getRenderer(entity);
         EntityRenderState renderState = renderer.createRenderState(entity, 1.0F);
+        renderState.lightCoords = 15728880;
         renderState.shadowPieces.clear();
         renderState.outlineColor = 0;
         renderState.displayFireAnimation = false;
         renderState.nameTag = null;
         renderState.nameTagAttachment = null;
-        renderState.scoreText = null;
         if (renderState.leashStates != null) {
             renderState.leashStates.clear();
         }
