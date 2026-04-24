@@ -3,20 +3,20 @@ package com.astryxion.damageindicators;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.logging.LogUtils;
 import com.mojang.math.Axis;
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.Camera;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.Gui;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
-import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -80,7 +80,7 @@ public final class DamageIndicators {
         activeDamageTexts.add(new DamageText(x, y, z, Component.literal(textStr), color, colorOutline));
     }
 
-    public static void renderHudBeforeBossBar(GuiGraphicsExtractor graphics, DeltaTracker deltaTracker) {
+    public static void renderHudBeforeBossBar(GuiGraphics graphics, DeltaTracker deltaTracker) {
         if (!Config.INSTANCE.hudIndicatorEnabled || Minecraft.getInstance().screen != null) {
             return;
         }
@@ -202,7 +202,7 @@ public final class DamageIndicators {
         pose.translate(healthOffsetX, healthOffsetY);
         pose.scale(healthScale, healthScale);
         pose.translate(-firstHalfWidth, 0);
-        graphics.text(Minecraft.getInstance().font, healthComponent, 0, 0, healthColor, Config.INSTANCE.hudHealthTextOutline);
+        graphics.drawString(Minecraft.getInstance().font, healthComponent, 0, 0, healthColor, Config.INSTANCE.hudHealthTextOutline);
         pose.popMatrix();
 
         Component nameComponent = damageIndicatorEntity.getDisplayName();
@@ -216,7 +216,7 @@ public final class DamageIndicators {
         pose.translate(nameOffsetX, nameOffsetY);
         pose.scale(nameScale, nameScale);
         pose.translate(-nameWidth / 2F, 0);
-        graphics.text(Minecraft.getInstance().font, nameComponent, 0, 0, nameColor, Config.INSTANCE.hudNameTextOutline);
+        graphics.drawString(Minecraft.getInstance().font, nameComponent, 0, 0, nameColor, Config.INSTANCE.hudNameTextOutline);
         pose.popMatrix();
 
         if (Config.INSTANCE.showModSource && !currentModSource.isEmpty()) {
@@ -232,7 +232,7 @@ public final class DamageIndicators {
             pose.translate(modSourceX, modSourceY);
             pose.scale(modSourceScale, modSourceScale);
             pose.translate(-modSourceWidth / 2F, 0);
-            graphics.text(Minecraft.getInstance().font, modSourceComponent, 0, 0, modSourceColor, false);
+            graphics.drawString(Minecraft.getInstance().font, modSourceComponent, 0, 0, modSourceColor, false);
             pose.popMatrix();
         }
 
@@ -347,15 +347,14 @@ public final class DamageIndicators {
         }
     }
 
-    public static void onRenderLevelAfterSolidFeatures(LevelRenderContext context) {
+    public static void onWorldAfterEntities(WorldRenderContext context) {
         if (activeDamageTexts.isEmpty() || !Config.INSTANCE.damageParticlesEnabled) return;
 
-        CameraRenderState cameraState = context.levelState().cameraRenderState;
-        if (cameraState == null) return;
-        PoseStack poseStack = context.poseStack();
+        Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
+        PoseStack poseStack = context.matrices();
         MultiBufferSource.BufferSource bufferSource = Minecraft.getInstance().renderBuffers().bufferSource();
-        Vec3 cameraPos = cameraState.pos;
-        Quaternionf cameraRotation = cameraState.orientation;
+        Vec3 cameraPos = camera.position();
+        Quaternionf cameraRotation = camera.rotation();
 
         for (DamageText dt : activeDamageTexts) {
             float lifeRatio = 1.0f - (float) dt.age / dt.maxAge;
@@ -386,7 +385,7 @@ public final class DamageIndicators {
     }
 
     private static void extractHudEntityInInventoryFollowsMouse(
-            GuiGraphicsExtractor graphics,
+            GuiGraphics graphics,
             int x0,
             int y0,
             int x1,
@@ -405,7 +404,7 @@ public final class DamageIndicators {
     }
 
     private static void renderHudEntityInInventoryFollowsAngle(
-            GuiGraphicsExtractor graphics,
+            GuiGraphics graphics,
             int x0,
             int y0,
             int x1,
@@ -435,7 +434,7 @@ public final class DamageIndicators {
         }
 
         Vector3f translation = new Vector3f(0.0F, renderState.boundingBoxHeight / 2.0F + offsetY, 0.0F);
-        graphics.entity(renderState, size, translation, rotation, xRotation, x0, y0, x1, y1);
+        graphics.submitEntityRenderState(renderState, size, translation, rotation, xRotation, x0, y0, x1, y1);
     }
 
     private static EntityRenderState createHudPortraitRenderState(LivingEntity entity) {
@@ -447,7 +446,6 @@ public final class DamageIndicators {
         renderState.displayFireAnimation = false;
         renderState.nameTag = null;
         renderState.nameTagAttachment = null;
-        renderState.scoreText = null;
         if (renderState.leashStates != null) {
             renderState.leashStates.clear();
         }

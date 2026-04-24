@@ -1,7 +1,9 @@
 package com.astryxion.damageindicators;
 
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.tags.EntityTypeTags;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ambient.AmbientCreature;
 import net.minecraft.world.entity.animal.golem.AbstractGolem;
@@ -9,8 +11,6 @@ import net.minecraft.world.entity.animal.fish.WaterAnimal;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.npc.Npc;
 import net.minecraft.world.entity.player.Player;
-import net.fabricmc.fabric.api.tag.convention.v2.ConventionalEntityTypeTags;
-
 import java.util.Locale;
 
 public enum MobTypes {
@@ -31,6 +31,9 @@ public enum MobTypes {
     UNKNOWN,
     BOSS;
 
+    private static final TagKey<EntityType<?>> CONVENTIONAL_BOSSES =
+            TagKey.create(Registries.ENTITY_TYPE, Identifier.fromNamespaceAndPath("c", "bosses"));
+
     private final Identifier texture;
     MobTypes(){
         texture = Identifier.fromNamespaceAndPath("damageindicators", "textures/gui/mob_types/" + name().toLowerCase(Locale.ROOT) + ".png");
@@ -41,7 +44,7 @@ public enum MobTypes {
             return PLAYER;
         }
         if(entity instanceof LivingEntity living){
-            if(living.getType().builtInRegistryHolder().is(ConventionalEntityTypeTags.BOSSES)){
+            if (living.getType().builtInRegistryHolder().is(CONVENTIONAL_BOSSES)) {
                 return BOSS;
             }
             if(living.getType().builtInRegistryHolder().is(EntityTypeTags.AQUATIC)){

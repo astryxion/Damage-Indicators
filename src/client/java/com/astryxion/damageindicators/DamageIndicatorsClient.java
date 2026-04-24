@@ -7,7 +7,7 @@ import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
-import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
 
@@ -23,7 +23,7 @@ public class DamageIndicatorsClient implements ClientModInitializer {
                 DamageIndicators::renderHudBeforeBossBar
         );
         ClientTickEvents.END_CLIENT_TICK.register(DamageIndicators::onClientTick);
-        LevelRenderEvents.AFTER_SOLID_FEATURES.register(DamageIndicators::onRenderLevelAfterSolidFeatures);
+        WorldRenderEvents.AFTER_ENTITIES.register(DamageIndicators::onWorldAfterEntities);
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
                 dispatcher.register(LiteralArgumentBuilder.<FabricClientCommandSource>literal("damageindicators")

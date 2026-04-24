@@ -1,6 +1,6 @@
 package com.astryxion.damageindicators;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -9,7 +9,7 @@ import net.minecraft.util.Util;
 import java.nio.file.Path;
 
 /**
- * Vanilla screen using the 26.1 {@link GuiGraphicsExtractor} pipeline ({@link Screen#extractRenderState}).
+ * Vanilla config screen (1.21.11 {@link GuiGraphics} / {@link Screen#render}).
  */
 public class DamageIndicatorsConfigScreen extends Screen {
 
@@ -31,7 +31,7 @@ public class DamageIndicatorsConfigScreen extends Screen {
                 Button.builder(Component.literal("Reload from disk"), b -> {
                     Config.load();
                     if (this.minecraft != null && this.minecraft.player != null) {
-                        this.minecraft.player.sendSystemMessage(Component.literal("Reloaded damageindicators.json"));
+                        this.minecraft.player.displayClientMessage(Component.literal("Reloaded damageindicators.json"), false);
                     }
                 }).bounds(cx - 100, y, 200, 20).build()
         );
@@ -41,7 +41,7 @@ public class DamageIndicatorsConfigScreen extends Screen {
                 Button.builder(Component.literal("Save to disk"), b -> {
                     Config.save();
                     if (this.minecraft != null && this.minecraft.player != null) {
-                        this.minecraft.player.sendSystemMessage(Component.literal("Saved damageindicators.json"));
+                        this.minecraft.player.displayClientMessage(Component.literal("Saved damageindicators.json"), false);
                     }
                 }).bounds(cx - 100, y, 200, 20).build()
         );
@@ -64,14 +64,14 @@ public class DamageIndicatorsConfigScreen extends Screen {
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        super.render(graphics, mouseX, mouseY, partialTick);
         Path path = Config.getConfigPath();
         String pathStr = path.toAbsolutePath().toString();
         int cx = this.width / 2;
-        graphics.text(this.font, this.title, cx - this.font.width(this.title) / 2, 40, 0xFFFFFF, false);
-        graphics.text(this.font, Component.literal("Edit options in:"), cx - this.font.width("Edit options in:") / 2, 60, 0xA0A0A0, false);
-        graphics.text(this.font, pathStr, 12, 76, 0xE0E0E0, false);
-        graphics.text(this.font, Component.literal("Use Reload after editing the file."), cx - this.font.width("Use Reload after editing the file.") / 2, this.height / 2, 0xA0A0A0, false);
+        graphics.drawString(this.font, this.title, cx - this.font.width(this.title) / 2, 40, 0xFFFFFF, false);
+        graphics.drawString(this.font, "Edit options in:", cx - this.font.width("Edit options in:") / 2, 60, 0xA0A0A0, false);
+        graphics.drawString(this.font, pathStr, 12, 76, 0xE0E0E0, false);
+        graphics.drawString(this.font, "Use Reload after editing the file.", cx - this.font.width("Use Reload after editing the file.") / 2, this.height / 2, 0xA0A0A0, false);
     }
 }

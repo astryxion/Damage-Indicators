@@ -1,5 +1,5 @@
 plugins {
-    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+    id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
     id 'maven-publish'
     id 'idea'
 }
@@ -9,6 +9,20 @@ group = maven_group
 
 base {
     archivesName = archives_base_name
+}
+
+sourceSets {
+    main {
+        java {
+            exclude 'com/github/alexmodguy/retrodamageindicators/**'
+        }
+        resources {
+            exclude 'retrodamageindicators.mixins.json'
+            exclude 'META-INF/neoforge.mods.toml'
+            exclude 'META-INF/mods.toml'
+            exclude 'META-INF/accesstransformer.cfg'
+        }
+    }
 }
 
 loom {
@@ -24,8 +38,9 @@ loom {
 
 dependencies {
     minecraft "com.mojang:minecraft:${minecraft_version}"
-    implementation "net.fabricmc:fabric-loader:${loader_version}"
-    implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
 }
 
 processResources {
@@ -50,13 +65,13 @@ processResources {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
-    options.release = 25
+    options.release = 21
 }
 
 java {
     withSourcesJar()
-    sourceCompatibility = JavaVersion.VERSION_25
-    targetCompatibility = JavaVersion.VERSION_25
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 }
 
 publishing {
