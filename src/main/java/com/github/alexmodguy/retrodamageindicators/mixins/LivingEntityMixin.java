@@ -2,11 +2,8 @@ package com.github.alexmodguy.retrodamageindicators.mixins;
 
 import com.github.alexmodguy.retrodamageindicators.Config;
 import com.github.alexmodguy.retrodamageindicators.RetroDamageIndicators;
-import net.minecraft.network.syncher.EntityDataAccessor;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.level.Level;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.network.datasync.DataParameter;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -15,34 +12,29 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(LivingEntity.class)
-public abstract class LivingEntityMixin extends Entity {
+public abstract class LivingEntityMixin {
 
     @Shadow
     @Final
-    private static EntityDataAccessor<Float> DATA_HEALTH_ID;
-
-    public LivingEntityMixin(EntityType<?> entityType, Level level) {
-        super(entityType, level);
-    }
+    private static DataParameter<Float> DATA_HEALTH_ID;
 
     @Shadow
     public abstract float getHealth();
 
     private float lastTrackedHealth = 0;
 
-    @Inject(
-            method = {"Lnet/minecraft/world/entity/LivingEntity;onSyncedDataUpdated(Lnet/minecraft/network/syncher/EntityDataAccessor;)V"},
-            remap = true,
-            at = @At(value = "HEAD")
-    )
-    public void retroDamageIndicators_onSyncedDataUpdated(EntityDataAccessor<?> entityDataAccessor, CallbackInfo ci) {
-        if (entityDataAccessor.equals(DATA_HEALTH_ID)) {
-            if (level().isClientSide && Config.INSTANCE.damageParticlesEnabled.get() && lastTrackedHealth != this.getHealth()) {
-                float difference = this.getHealth() - lastTrackedHealth;
-                if (!this.isRemoved() && this.level() != null) {
-                    RetroDamageIndicators.spawnHurtParticles(this, difference);
+    @Inject(method = "onSyncedDataUpdated", at = @At("HEAD"))
+    public void retroDamageIndicators_onSyncedDataUpdated(DataParameter<?> key, CallbackInfo ci) {
+        LivingEntity living = (LivingEntity) (Object) this;
+        if (key == DATA_HEALTH_ID) {
+            if (living.level != null && living.level.isClientSide()
+                    && Config.INSTANCE.damageParticlesEnabled.get()
+                    && lastTrackedHealth != living.getHealth()) {
+                float difference = living.getHealth() - lastTrackedHealth;
+                if (!living.removed && living.isAddedToWorld()) {
+                    RetroDamageIndicators.spawnHurtParticles(living, difference);
                 }
-                lastTrackedHealth = this.getHealth();
+                lastTrackedHealth = living.getHealth();
             }
         }
     }

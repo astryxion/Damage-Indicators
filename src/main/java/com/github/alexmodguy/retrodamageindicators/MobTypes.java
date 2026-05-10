@@ -1,16 +1,19 @@
 package com.github.alexmodguy.retrodamageindicators;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.entity.CreatureEntity;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
+import net.minecraft.entity.passive.GolemEntity;
+import net.minecraft.entity.CreatureAttribute;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.monster.MonsterEntity;
+import net.minecraft.entity.passive.AmbientEntity;
+import net.minecraft.entity.passive.WaterMobEntity;
+import net.minecraft.entity.merchant.villager.AbstractVillagerEntity;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.tags.EntityTypeTags;
-import net.minecraft.world.entity.*;
-import net.minecraft.world.entity.ambient.AmbientCreature;
-import net.minecraft.world.entity.animal.AbstractGolem;
-import net.minecraft.world.entity.animal.SnowGolem;
-import net.minecraft.world.entity.animal.WaterAnimal;
-import net.minecraft.world.entity.monster.Enemy;
-import net.minecraft.world.entity.npc.Npc;
-import net.minecraft.world.entity.player.Player;
-import net.neoforged.neoforge.common.Tags;
+import net.minecraft.tags.ITag;
+import net.minecraft.util.ResourceLocation;
 
 import java.util.Locale;
 
@@ -33,40 +36,45 @@ public enum MobTypes {
     BOSS;
 
     private final ResourceLocation texture;
-    MobTypes(){
-        texture = ResourceLocation.fromNamespaceAndPath("retrodamageindicators", "textures/gui/mob_types/" + name().toLowerCase(Locale.ROOT) + ".png");
+
+    MobTypes() {
+        texture = new ResourceLocation("retrodamageindicators:textures/gui/mob_types/" + name().toLowerCase(Locale.ROOT) + ".png");
     }
 
-    public static MobTypes getTypeFor(Entity entity){
-        if(entity instanceof Player){
+    public static MobTypes getTypeFor(Entity entity) {
+        if (entity instanceof PlayerEntity) {
             return PLAYER;
         }
-        if(entity instanceof LivingEntity living){
-            if(living.getType().is(Tags.EntityTypes.BOSSES)){
+        if (entity instanceof LivingEntity) {
+            LivingEntity living = (LivingEntity) entity;
+
+            ITag<EntityType<?>> bossTag = EntityTypeTags.getAllTags().getTag(new ResourceLocation("forge", "bosses"));
+            if (bossTag != null && bossTag.contains(living.getType())) {
                 return BOSS;
             }
-            if(living.getType().is(EntityTypeTags.AQUATIC)){
-                return living instanceof Enemy ? WATER_MONSTER : WATER_ANIMAL;
-            }else if(living.getType().is(EntityTypeTags.UNDEAD)){
-                return living instanceof Enemy ? UNDEAD : UNDEAD_ANIMAL;
-            }else if(living.getType().is(EntityTypeTags.ARTHROPOD)){
-                return living instanceof WaterAnimal || living.canBreatheUnderwater() ? WATER_ARTHROPOD : living instanceof Enemy ? ARTHROPOD_MONSTER : ARTHROPOD;
-            }else if(living.getType().is(EntityTypeTags.ILLAGER)){
+            CreatureAttribute creatureAttribute = living.getMobType();
+            if (creatureAttribute == CreatureAttribute.WATER) {
+                return living instanceof MonsterEntity ? WATER_MONSTER : WATER_ANIMAL;
+            } else if (creatureAttribute == CreatureAttribute.UNDEAD) {
+                return living instanceof MonsterEntity ? UNDEAD : UNDEAD_ANIMAL;
+            } else if (creatureAttribute == CreatureAttribute.ARTHROPOD) {
+                return living instanceof WaterMobEntity || living.canBreatheUnderwater() ? WATER_ARTHROPOD : living instanceof MonsterEntity ? ARTHROPOD_MONSTER : ARTHROPOD;
+            } else if (creatureAttribute == CreatureAttribute.ILLAGER) {
                 return ILLAGER;
             }
-            if(living instanceof AbstractGolem){
+            if (living instanceof GolemEntity) {
                 return GOLEM;
             }
-            if(living instanceof Npc){
+            if (living instanceof AbstractVillagerEntity) {
                 return VILLAGER;
             }
-            if(living instanceof Enemy){
+            if (living instanceof MonsterEntity) {
                 return MONSTER;
             }
-            if(living instanceof AmbientCreature){
+            if (living instanceof AmbientEntity) {
                 return AMBIENT;
             }
-            if(living instanceof Mob){
+            if (living instanceof CreatureEntity && !(living instanceof MonsterEntity)) {
                 return ANIMAL;
             }
         }

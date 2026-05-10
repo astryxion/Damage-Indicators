@@ -1,19 +1,18 @@
 modLoader="javafml" #mandatory
-loaderVersion="[46,)" #mandatory This is typically bumped every Minecraft version by Forge. See our download page for lists of versions.
+loaderVersion="[36,)" #mandatory Forge for Minecraft 1.16.x
 license="GNU LESSER GENERAL PUBLIC LICENSE"
-issueTrackerURL="https://github.com/AlexModGuy/RetroDamageIndicators/issues" #optional
+issueTrackerURL="https://github.com/astryxion/Damage-Indicators/issues" #optional
 [[mods]] #mandatory
 modId="retrodamageindicators" #mandatory
-version="1.0.1" #mandatory
+version="1.16.5-1.0.0" #mandatory
 displayName="Retro Damage Indicators" #mandatory
-displayURL="" #optional
-logoFile="assets/retrodamageindicators/textures/mod_logo.png" #optional
-authors="Alexthe668" #optional
-credits="Ron0" #optional
+displayURL="https://github.com/astryxion/Damage-Indicators" #optional
+authors="Astryxion" #optional
+credits="Ron0 and Alexthe668" #optional
 description='''A mob health indicator on the in-game HUD that is reminiscent of modded days long gone...'''
 [[dependencies.retrodamageindicators]]
 modId="forge"
 mandatory=false
-versionRange="[47.1.3,)"
+versionRange="[36.2.34,)"
 ordering="NONE"
 side="CLIENT"
