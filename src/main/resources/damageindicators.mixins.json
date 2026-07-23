@@ -1,16 +1,13 @@
 {
   "required": true,
+  "minVersion": "0.8",
   "package": "com.astryxion.damageindicators.mixins",
   "compatibilityLevel": "JAVA_21",
-  "target": "@env(DEFAULT)",
-  "refmap": "damageindicators.refmap.json",
-  "mixins": [
-  ],
+  "mixins": [],
   "client": [
     "LivingEntityMixin"
   ],
   "injectors": {
     "defaultRequire": 1
-  },
-  "minVersion": "0.8"
+  }
 }
