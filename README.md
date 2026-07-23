@@ -1,6 +1,6 @@
 # Damage Indicators (Expanded)
 
-A client-side damage indicators mod for Minecraft **Fabric 26.1** with multiple visual styles.
+A client-side damage indicators mod for Minecraft Forge **1.20.1** with multiple visual styles.
 
 Choose a modern Retro Damage Indicators look, or switch to the classic nostalgic Damage Indicators 1.12.2 HUD and popoff numbers - all from one config option.
 
