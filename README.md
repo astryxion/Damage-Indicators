@@ -1,25 +1,28 @@
+# Damage Indicators (Expanded)
 
-Installation information
-=======
+A client-side damage indicators mod for Minecraft **NeoForge 1.21.1** with multiple visual styles.
 
-This template repository can be directly cloned to get you started with a new
-mod. Simply create a new repository cloned from this one, by following the
-instructions provided by [GitHub](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template).
+Choose a modern Retro Damage Indicators look, or switch to the classic nostalgic Damage Indicators 1.12.2 HUD and popoff numbers - all from one config option.
 
-Once you have your clone, simply open the repository in the IDE of your choice. The usual recommendation for an IDE is either IntelliJ IDEA or Eclipse.
+**Homepage:** https://github.com/astryxion/Damage-Indicators
 
-If at any point you are missing libraries in your IDE, or you've run into problems you can
-run `gradlew --refresh-dependencies` to refresh the local cache. `gradlew clean` to reset everything 
-{this does not affect your code} and then start the process again.
+## Features
 
-Mapping Names:
-============
-By default, the MDK is configured to use the official mapping names from Mojang for methods and fields 
-in the Minecraft codebase. These names are covered by a specific license. All modders should be aware of this
-license. For the latest license text, refer to the mapping file itself, or the reference copy here:
-https://github.com/NeoForged/NeoForm/blob/main/Mojang.md
+- **Style 1** - Retro Damage Indicators style HUD and red/green damage popoffs
+- **Style 2** - Classic Damage Indicators 1.12.2 Clean skin HUD and orange popoffs
+- Per-style config sections (only the active style is used in-game)
+- Config reloads when joining a world (edit `style`, rejoin to apply)
 
-Additional Resources: 
-==========
-Community Documentation: https://docs.neoforged.net/  
-NeoForged Discord: https://discord.neoforged.net/
+## Attribution
+
+**Author:** Astryxion
+
+**Credits:** Astryxion, Alexthe668, Ron0, rich1051414
+
+This project builds on prior Damage Indicators work and Retro Damage Indicators.
+
+## License
+
+This project is licensed under the [GNU General Public License v3.0](LICENSE).
+
+See the [LICENSE](LICENSE) file for the full license text.
