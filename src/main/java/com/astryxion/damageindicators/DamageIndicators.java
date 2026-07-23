@@ -1,30 +1,24 @@
 package com.astryxion.damageindicators;
 
-import com.electronwill.nightconfig.core.file.CommentedFileConfig;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.boss.enderdragon.EnderDragonPart;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.fml.loading.FMLPaths;
-import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.RenderGuiLayerEvent;
-import net.neoforged.neoforge.client.event.ScreenEvent;
-import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
-import net.neoforged.neoforge.entity.PartEntity;
 
-import java.nio.file.Files;
-
-@EventBusSubscriber(modid = DamageIndicators.MODID, value = Dist.CLIENT)
 public class DamageIndicators {
     public static final String MODID = "damageindicators";
 
@@ -49,33 +43,46 @@ public class DamageIndicators {
         return (float) (Math.round(entityHealth * 5) / 5D);
     }
 
+    public static void init() {
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> reloadClientConfigFromDisk());
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> clearClientState());
+
+        ClientTickEvents.START_CLIENT_TICK.register(client -> {
+            Config.INSTANCE.checkForExternalChanges();
+            onClientTick();
+        });
+
+        // Mirror NeoForge RenderGuiLayerEvent on boss overlay timing.
+        HudElementRegistry.attachElementBefore(
+                VanillaHudElements.BOSS_BAR,
+                Identifier.fromNamespaceAndPath(MODID, "damage_indicator_hud"),
+                (graphics, deltaTracker) -> {
+                    if (Minecraft.getInstance().gui.screen() != null) {
+                        return;
+                    }
+                    renderHudIfNeeded(graphics, deltaTracker.getGameTimeDeltaPartialTick(false), true);
+                }
+        );
+
+        // When a menu is open, Gui layers can be skipped — ScreenEvent path draws instead.
+        ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
+            if (!isInGameMenuScreen(screen)) {
+                return;
+            }
+            ScreenEvents.beforeExtract(screen).register((s, graphics, mouseX, mouseY, tickDelta) ->
+                    renderHudIfNeeded(graphics, tickDelta, true));
+        });
+    }
+
     /**
      * Re-read the client toml from disk so leave-world -> edit style -> rejoin picks up changes
      * without restarting Minecraft.
      */
     public static void reloadClientConfigFromDisk() {
         try {
-            var path = FMLPaths.CONFIGDIR.get().resolve(MODID + "-client.toml");
-            if (!Files.exists(path)) {
-                return;
-            }
-            CommentedFileConfig fresh = CommentedFileConfig.builder(path).sync().autosave().preserveInsertionOrder().build();
-            fresh.load();
-            // NeoForge ModConfigSpec.acceptConfig expects ILoadedConfig; apply via correction against disk values.
-            Config.SPEC.correct(fresh);
-            fresh.save();
+            Config.INSTANCE.reload();
         } catch (Throwable ignored) {
         }
-    }
-
-    @SubscribeEvent
-    public static void onClientLogin(ClientPlayerNetworkEvent.LoggingIn event) {
-        reloadClientConfigFromDisk();
-    }
-
-    @SubscribeEvent
-    public static void onClientLogout(ClientPlayerNetworkEvent.LoggingOut event) {
-        clearClientState();
     }
 
     private static void clearClientState() {
@@ -86,25 +93,6 @@ public class DamageIndicators {
         PopoffRenderer.clear();
     }
 
-    @SubscribeEvent
-    public static void onPreRenderGuiLayer(RenderGuiLayerEvent.Pre event) {
-        // When a menu is open, Gui layers can be skipped on 1.21.1 — ScreenEvent path draws instead.
-        if (Minecraft.getInstance().screen != null) {
-            return;
-        }
-        renderHudIfNeeded(event.getGuiGraphics(), event.getPartialTick().getGameTimeDeltaPartialTick(false), event.getName().equals(VanillaGuiLayers.BOSS_OVERLAY));
-    }
-
-    @SubscribeEvent
-    public static void onScreenRenderPre(ScreenEvent.Render.Pre event) {
-        // Only draw on in-world menus (pause/inventory). Skip loading/title/disconnect screens —
-        // those tear down EntityRenderDispatcher.camera and crash portrait rendering.
-        if (!isInGameMenuScreen(event.getScreen())) {
-            return;
-        }
-        renderHudIfNeeded(event.getGuiGraphics(), event.getPartialTick(), true);
-    }
-
     private static boolean isInGameMenuScreen(net.minecraft.client.gui.screens.Screen screen) {
         return screen instanceof net.minecraft.client.gui.screens.PauseScreen
                 || screen instanceof net.minecraft.client.gui.screens.ChatScreen
@@ -112,17 +100,17 @@ public class DamageIndicators {
                 || screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>;
     }
 
-    private static void renderHudIfNeeded(net.minecraft.client.gui.GuiGraphics guiGraphics, float partialTick, boolean allowedLayer) {
+    private static void renderHudIfNeeded(GuiGraphicsExtractor guiGraphics, float partialTick, boolean allowedLayer) {
         if (!allowedLayer || !Config.INSTANCE.active().hudIndicatorEnabled.get()) {
             return;
         }
         Minecraft mc = Minecraft.getInstance();
         // Leaving world / title screens: level or camera are torn down; rendering a cached entity NPEs.
-        if (mc.options.hideGui || mc.level == null || mc.player == null || mc.cameraEntity == null
+        if (mc.gui.hud.isHidden() || mc.level == null || mc.player == null || mc.getCameraEntity() == null
                 || damageIndicatorEntity == null) {
             return;
         }
-        var camera = mc.gameRenderer.getMainCamera();
+        var camera = mc.gameRenderer.mainCamera();
         if (!camera.isInitialized()) {
             return;
         }
@@ -137,33 +125,33 @@ public class DamageIndicators {
         }
     }
 
-    @SubscribeEvent
-    public static void onClientTick(ClientTickEvent.Pre event) {
+    private static void onClientTick() {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null || mc.cameraEntity == null) {
+        if (mc.level == null || mc.getCameraEntity() == null) {
             if (damageIndicatorEntity != null) {
                 clearClientState();
             }
             return;
         }
         // Freeze linger while a menu is open so the HUD does not expire mid-inventory/pause.
-        if (mc.screen != null) {
+        if (mc.gui.screen() != null) {
             return;
         }
         Config.StyleSettings cfg = Config.INSTANCE.active();
         double maxPickDistance = cfg.maxDistance.get();
         double pickDistance = maxPickDistance;
-        float partialTick = mc.getTimer().getGameTimeDeltaPartialTick(false);
-        Vec3 vec3 = mc.cameraEntity.getEyePosition(partialTick);
-        HitResult hitResult = mc.cameraEntity.pick(pickDistance, partialTick, false);
+        float partialTick = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
+        Entity cameraEntity = mc.getCameraEntity();
+        Vec3 vec3 = cameraEntity.getEyePosition(partialTick);
+        HitResult hitResult = cameraEntity.pick(pickDistance, partialTick, false);
         LivingEntity found = null;
         if (hitResult != null && hitResult.getType() != HitResult.Type.MISS) {
             pickDistance = hitResult.getLocation().distanceToSqr(vec3);
         }
-        Vec3 vec31 = mc.cameraEntity.getViewVector(1.0F);
+        Vec3 vec31 = cameraEntity.getViewVector(1.0F);
         Vec3 vec32 = vec3.add(vec31.x * maxPickDistance, vec31.y * maxPickDistance, vec31.z * maxPickDistance);
-        AABB aabb = mc.cameraEntity.getBoundingBox().expandTowards(vec31.scale(maxPickDistance)).inflate(3.0D, 3.0D, 3.0D);
-        EntityHitResult entityhitresult = ProjectileUtil.getEntityHitResult(mc.cameraEntity, vec3, vec32, aabb, (lookingAt) -> {
+        AABB aabb = cameraEntity.getBoundingBox().expandTowards(vec31.scale(maxPickDistance)).inflate(3.0D, 3.0D, 3.0D);
+        EntityHitResult entityhitresult = ProjectileUtil.getEntityHitResult(cameraEntity, vec3, vec32, aabb, (lookingAt) -> {
             return !lookingAt.isSpectator() && lookingAt.isPickable();
         }, pickDistance);
         if (entityhitresult != null) {
@@ -173,7 +161,7 @@ public class DamageIndicators {
             if (d2 < pickDistance || pickDistance == maxPickDistance) {
                 if (entity instanceof LivingEntity living && living.isAlive() && !(living instanceof ArmorStand)) {
                     found = living;
-                } else if (entity instanceof PartEntity<?> partEntity && partEntity.getParent() instanceof LivingEntity living) {
+                } else if (entity instanceof EnderDragonPart part && part.parentMob instanceof LivingEntity living) {
                     found = living;
                 }
             }

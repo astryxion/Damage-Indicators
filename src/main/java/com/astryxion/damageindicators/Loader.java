@@ -1,18 +1,13 @@
 package com.astryxion.damageindicators;
 
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.config.ModConfig;
-import net.neoforged.fml.loading.FMLEnvironment;
+import net.fabricmc.api.ClientModInitializer;
 
-@Mod(value = DamageIndicators.MODID, dist = Dist.CLIENT)
-public class Loader {
-
-    public Loader(IEventBus modEventBus, ModContainer container) {
-        if (FMLEnvironment.dist.isClient()) {
-            container.registerConfig(ModConfig.Type.CLIENT, Config.SPEC);
-        }
+public class Loader implements ClientModInitializer {
+    @Override
+    public void onInitializeClient() {
+        // Touch config so defaults are written on first launch.
+        Config.INSTANCE.load();
+        DamageIndicators.init();
+        PopoffRenderer.init();
     }
 }
