@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "${mod_id}",
+  "version": "${version}",
+  "name": "${mod_name}",
+  "description": "${mod_description}",
+  "authors": [
+    "${mod_authors}"
+  ],
+  "contact": {
+    "homepage": "https://github.com/astryxion/Damage-Indicators",
+    "sources": "https://github.com/astryxion/Damage-Indicators",
+    "issues": "https://github.com/astryxion/Damage-Indicators/issues"
+  },
+  "license": "${mod_license}",
+  "icon": "assets/damageindicators/textures/mod_logo.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.astryxion.damageindicators.Loader"
+    ]
+  },
+  "mixins": [
+    "damageindicators.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "minecraft": "~${minecraft_version}",
+    "java": ">=17",
+    "fabric-api": "*"
+  }
+}

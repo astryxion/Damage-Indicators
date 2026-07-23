@@ -1,6 +1,6 @@
 # Damage Indicators (Expanded)
 
-A client-side damage indicators mod for Minecraft Forge, Fabric, and NeoForge with multiple visual styles.
+A client-side damage indicators mod for Minecraft **Fabric 1.21.1** with multiple visual styles.
 
 Choose a modern Retro Damage Indicators look, or switch to the classic nostalgic Damage Indicators 1.12.2 HUD and popoff numbers - all from one config option.
 
@@ -11,7 +11,7 @@ Choose a modern Retro Damage Indicators look, or switch to the classic nostalgic
 - **Style 1** - Retro Damage Indicators style HUD and red/green damage popoffs
 - **Style 2** - Classic Damage Indicators 1.12.2 Clean skin HUD and orange popoffs
 - Per-style config sections (only the active style is used in-game)
-- Config reloads when joining a world (edit `style`, rejoin to apply)
+- Config reloads when joining a world, and hot-reloads when the toml changes on disk
 
 ## Attribution
 
