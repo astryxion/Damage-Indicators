@@ -1,4 +1,4 @@
-package com.github.alexmodguy.retrodamageindicators;
+package com.astryxion.damageindicators;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -14,10 +14,12 @@ import net.minecraft.core.particles.ParticleGroup;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
-import org.joml.Quaternionf;
 
 import java.util.Optional;
 
+/**
+ * Style 1 damage/heal popoff — original Retro Damage Indicators red/green particles.
+ */
 public class DamageIndicatorParticle extends Particle {
 
     private static final ParticleGroup GROUP = new ParticleGroup(1000);
@@ -30,10 +32,10 @@ public class DamageIndicatorParticle extends Particle {
         super(clientLevel, x, y, z);
         this.lifetime = 15 + clientLevel.random.nextInt(5);
         String text;
-        if(Config.INSTANCE.healthDecimals.get()){
-            text = String.valueOf(RetroDamageIndicators.roundHealth((float) damageAmount)).replace(".0", "");
-        }else{
-            text = "" + (int)damageAmount;
+        if (Config.INSTANCE.active().healthDecimals.get()) {
+            text = String.valueOf(DamageIndicators.roundHealth((float) damageAmount)).replace(".0", "");
+        } else {
+            text = "" + (int) damageAmount;
         }
         this.damageString = Component.literal(text);
         this.heal = heal;
@@ -43,7 +45,7 @@ public class DamageIndicatorParticle extends Particle {
     }
 
     @Override
-    public void tick(){
+    public void tick() {
         super.tick();
         float ageScaled = age / (float) lifetime;
         this.prevScale = scale;
@@ -65,12 +67,12 @@ public class DamageIndicatorParticle extends Particle {
         posestack.translate(x - cameraPos.x, y - cameraPos.y, z - cameraPos.z);
         posestack.mulPose(camera.rotation());
         posestack.mulPose(Axis.ZP.rotationDegrees(180.0F));
-        float f = (float)(-Minecraft.getInstance().font.width(damageString) / 2);
+        float f = (float) (-Minecraft.getInstance().font.width(damageString) / 2);
         posestack.scale(scale, scale, scale);
         posestack.translate(0.0F, -2.0F, 0.0F);
-        if(Config.INSTANCE.damageParticleOutline.get()){
+        if (Config.INSTANCE.active().damageParticleOutline.get()) {
             Minecraft.getInstance().font.drawInBatch8xOutline(damageString.getVisualOrderText(), f, 0.0F, color, colorOutline, posestack.last().pose(), multibuffersource$buffersource, 15728880);
-        }else{
+        } else {
             Minecraft.getInstance().font.drawInBatch(damageString.getVisualOrderText(), f, 0.0F, color, false, posestack.last().pose(), multibuffersource$buffersource, Font.DisplayMode.NORMAL, 0, 15728880);
         }
         multibuffersource$buffersource.endBatch();
@@ -86,6 +88,7 @@ public class DamageIndicatorParticle extends Particle {
         return ParticleRenderType.CUSTOM;
     }
 
+    @Override
     public Optional<ParticleGroup> getParticleGroup() {
         return Optional.of(GROUP);
     }
