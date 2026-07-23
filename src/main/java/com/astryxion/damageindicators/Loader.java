@@ -11,7 +11,7 @@ import net.neoforged.fml.loading.FMLEnvironment;
 public class Loader {
 
     public Loader(IEventBus modEventBus, ModContainer container) {
-        if (FMLEnvironment.dist.isClient()) {
+        if (FMLEnvironment.getDist().isClient()) {
             container.registerConfig(ModConfig.Type.CLIENT, Config.SPEC);
         }
     }

@@ -1,32 +1,25 @@
 package com.astryxion.damageindicators;
 
-import com.mojang.blaze3d.platform.Lighting;
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
-import net.minecraft.client.renderer.entity.LivingEntityRenderer;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
 import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.neoforged.neoforge.client.event.RenderGuiLayerEvent;
-import org.joml.Quaternionf;
-import org.joml.Vector3f;
+import org.joml.Matrix3x2fStack;
 
 /**
  * Style 1 HUD — original Retro Damage Indicators (208x78 panel, dual scissor).
+ * Ported to NeoForge 26.1 GuiGraphicsExtractor (Matrix3x2fStack + RenderPipelines).
  */
 public final class Style1HudRenderer {
-    private static final ResourceLocation DAMAGE_INDICATOR_TEXTURE = ResourceLocation.fromNamespaceAndPath(DamageIndicators.MODID, "textures/gui/damage_indicator.png");
-    private static final ResourceLocation DAMAGE_INDICATOR_BACKGROUND_TEXTURE = ResourceLocation.fromNamespaceAndPath(DamageIndicators.MODID, "textures/gui/damage_indicator_background.png");
-    private static final ResourceLocation DAMAGE_INDICATOR_HEALTH_TEXTURE = ResourceLocation.fromNamespaceAndPath(DamageIndicators.MODID, "textures/gui/damage_indicator_health.png");
-    private static final Quaternionf ENTITY_ROTATION = (new Quaternionf()).rotationXYZ((float) Math.toRadians(30), (float) Math.toRadians(130), (float) Math.PI);
+    private static final Identifier DAMAGE_INDICATOR_TEXTURE = Identifier.fromNamespaceAndPath(DamageIndicators.MODID, "textures/gui/damage_indicator.png");
+    private static final Identifier DAMAGE_INDICATOR_BACKGROUND_TEXTURE = Identifier.fromNamespaceAndPath(DamageIndicators.MODID, "textures/gui/damage_indicator_background.png");
+    private static final Identifier DAMAGE_INDICATOR_HEALTH_TEXTURE = Identifier.fromNamespaceAndPath(DamageIndicators.MODID, "textures/gui/damage_indicator_health.png");
 
     private Style1HudRenderer() {
     }
@@ -35,7 +28,7 @@ public final class Style1HudRenderer {
         render(event.getGuiGraphics(), event.getPartialTick().getGameTimeDeltaPartialTick(false), entity, mobType, renderModelOnly);
     }
 
-    public static void render(GuiGraphics guiGraphics, float partialTick, LivingEntity entity, MobTypes mobType, boolean renderModelOnly) {
+    public static void render(GuiGraphicsExtractor guiGraphics, float partialTick, LivingEntity entity, MobTypes mobType, boolean renderModelOnly) {
         Config.StyleSettings cfg = Config.INSTANCE.active();
         float entityHealth = Math.min(entity.getHealth(), entity.getMaxHealth());
         float entityMaxHealth = entity.getMaxHealth();
@@ -64,54 +57,50 @@ public final class Style1HudRenderer {
         int healthbarHeight = 18;
         int healthbarMaxWidth = 124;
         int currentHealthbarWidth = (int) Math.round(healthbarMaxWidth * healthRatio);
-        PoseStack poseStack = guiGraphics.pose();
-        poseStack.pushPose();
-        poseStack.translate(xOffset, yOffset - 0.5F, 0);
-        poseStack.scale(scale, scale, scale);
+        Matrix3x2fStack pose = guiGraphics.pose();
+        pose.pushMatrix();
+        pose.translate(xOffset, yOffset - 0.5F);
+        pose.scale(scale, scale);
 
         int scissorBox1MinX = 16;
         int scissorBox1MinY = 4;
         int scissorBox1MaxX = 73;
-        int scissorBox1MaxY = 49;
-        int scissorBox2MinX = 28;
-        int scissorBox2MinY = 49;
-        int scissorBox2MaxX = 73;
         int scissorBox2MaxY = 61;
-        int entityX = 45;
-        int entityY = 56;
 
-        guiGraphics.enableScissor(xOffset + Math.round(scale * scissorBox1MinX), yOffset + Math.round(scale * scissorBox1MinY), xOffset + Math.round(scale * scissorBox1MaxX), yOffset + Math.round(scale * scissorBox1MaxY));
-        float biggestEntityDimension = Math.max(entity.getBbWidth() * 1.2F + 0.3F, entity.getBbHeight() * 0.9F) * 0.85F;
-        float renderScale = cfg.hudEntitySize.get().floatValue();
-        if ((double) biggestEntityDimension > 0.5D) {
-            renderScale /= biggestEntityDimension;
-        }
-        renderEntityInGui(guiGraphics, entityX, entityY, renderScale, ENTITY_ROTATION, entity, partialTick, renderModelOnly);
+        // Background first, then portrait (DI-NeoForge-1.21.11 order — avoids washing out the model).
+        int bgColor = ((Mth.clamp((int) (backgroundOpacity * 255.0F), 0, 255)) << 24) | 0xFFFFFF;
+        blit(guiGraphics, DAMAGE_INDICATOR_BACKGROUND_TEXTURE, 0, 0, 0, 0, 208, 78, 256, 256, bgColor);
+
+        int p1x0 = xOffset + Math.round(scale * scissorBox1MinX);
+        int p1y0 = yOffset + Math.round(scale * scissorBox1MinY);
+        int p1x1 = xOffset + Math.round(scale * scissorBox1MaxX);
+        // Single combined portrait box (upper+lower scissor) like DI-NeoForge-1.21.11.
+        int p2y1 = yOffset + Math.round(scale * scissorBox2MaxY);
+        int desired = HudPortraitRenderer.style1Scale(entity, cfg.hudEntitySize.get().floatValue(), scale);
+        int entityScale = HudPortraitRenderer.fitToPortraitBox(desired, entity, p1x1 - p1x0, p2y1 - p1y0);
+
+        // DI-NeoForge-1.21.11: pop HUD pose before PIP submit.
+        pose.popMatrix();
+        guiGraphics.enableScissor(p1x0, p1y0, p1x1, p2y1);
+        float centerX = (p1x0 + p1x1) / 2.0F;
+        float centerY = (p1y0 + p2y1) / 2.0F;
+        HudPortraitRenderer.renderFollowsMouse(
+                guiGraphics, p1x0, p1y0, p1x1, p2y1, entityScale, 0.0625F,
+                centerX + 17.0F, centerY - 12.0F, entity);
         guiGraphics.disableScissor();
-        guiGraphics.enableScissor(xOffset + Math.round(scale * scissorBox2MinX), yOffset + Math.round(scale * scissorBox2MinY), xOffset + Math.round(scale * scissorBox2MaxX), yOffset + Math.round(scale * scissorBox2MaxY));
-        renderEntityInGui(guiGraphics, entityX, entityY, renderScale, ENTITY_ROTATION, entity, partialTick, renderModelOnly);
-        guiGraphics.disableScissor();
+        pose.pushMatrix();
+        pose.translate(xOffset, yOffset - 0.5F);
+        pose.scale(scale, scale);
 
-        poseStack.pushPose();
-        poseStack.translate(0, 0, -200);
-
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, backgroundOpacity);
-        guiGraphics.blit(DAMAGE_INDICATOR_BACKGROUND_TEXTURE, 0, 0, 0, 0, 208, 78, 256, 256);
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-
-        guiGraphics.blit(DAMAGE_INDICATOR_TEXTURE, 0, 0, 0, 0, 208, 78, 256, 256);
+        blit(guiGraphics, DAMAGE_INDICATOR_TEXTURE, 0, 0, 0, 0, 208, 78, 256, 256, 0xFFFFFFFF);
 
         int relativeMobTypeX = 5;
         int relativeMobTypeY = 55;
-        guiGraphics.blit(mobType.getTexture(), relativeMobTypeX, relativeMobTypeY, 0, 0, 18, 18, 18, 18);
+        blit(guiGraphics, mobType.getTexture(), relativeMobTypeX, relativeMobTypeY, 0, 0, 18, 18, 18, 18, 0xFFFFFFFF);
 
         int healthbarVOffset = cfg.colorblindHealthBar.get() ? 36 : 0;
-        guiGraphics.blit(DAMAGE_INDICATOR_HEALTH_TEXTURE, relativeHealthbarX, relativeHealthbarY, 0, healthbarVOffset + 18, healthbarMaxWidth, healthbarHeight, 256, 256);
-        guiGraphics.blit(DAMAGE_INDICATOR_HEALTH_TEXTURE, relativeHealthbarX, relativeHealthbarY, 0, healthbarVOffset, currentHealthbarWidth, healthbarHeight, 256, 256);
-
-        poseStack.popPose();
+        blit(guiGraphics, DAMAGE_INDICATOR_HEALTH_TEXTURE, relativeHealthbarX, relativeHealthbarY, 0, healthbarVOffset + 18, healthbarMaxWidth, healthbarHeight, 256, 256, 0xFFFFFFFF);
+        blit(guiGraphics, DAMAGE_INDICATOR_HEALTH_TEXTURE, relativeHealthbarX, relativeHealthbarY, 0, healthbarVOffset, currentHealthbarWidth, healthbarHeight, 256, 256, 0xFFFFFFFF);
 
         String healthText;
         float healthOffsetX = 136;
@@ -136,12 +125,12 @@ public final class Style1HudRenderer {
         float healthScale = Math.min(88F / (float) healthWidth, 1.35F);
         Font font = Minecraft.getInstance().font;
 
-        poseStack.pushPose();
-        poseStack.translate(healthOffsetX, healthOffsetY, 0);
-        poseStack.scale(healthScale, healthScale, 1);
-        poseStack.translate(-firstHalfWidth, 0, -50);
+        pose.pushMatrix();
+        pose.translate(healthOffsetX, healthOffsetY);
+        pose.scale(healthScale, healthScale);
+        pose.translate(-firstHalfWidth, 0);
         drawHudText(guiGraphics, font, healthComponent, 0, 0, 0xFFFFFF, cfg.hudHealthTextOutline.get());
-        poseStack.popPose();
+        pose.popMatrix();
 
         Component nameComponent = entity.getDisplayName();
         int nameWidth = font.width(nameComponent);
@@ -149,63 +138,28 @@ public final class Style1HudRenderer {
         float nameOffsetX = 138.5F;
         float nameOffsetY = 6.5F;
 
-        poseStack.pushPose();
-        poseStack.translate(nameOffsetX, nameOffsetY, 0);
-        poseStack.scale(nameScale, nameScale, 1);
-        poseStack.translate(-nameWidth / 2F, 0, -50);
+        pose.pushMatrix();
+        pose.translate(nameOffsetX, nameOffsetY);
+        pose.scale(nameScale, nameScale);
+        pose.translate(-nameWidth / 2F, 0);
         drawHudText(guiGraphics, font, nameComponent, 0, 0, 0xFFFFFF, cfg.hudNameTextOutline.get());
-        poseStack.popPose();
+        pose.popMatrix();
 
-        poseStack.popPose();
-        guiGraphics.flush();
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.enableDepthTest();
-        Lighting.setupFor3DItems();
+        pose.popMatrix();
     }
 
-    private static void drawHudText(GuiGraphics guiGraphics, Font font, Component text, int x, int y, int color, boolean outline) {
+    private static void blit(GuiGraphicsExtractor guiGraphics, Identifier texture, int x, int y, float u, float v, int width, int height, int texW, int texH, int color) {
+        guiGraphics.blit(RenderPipelines.GUI_TEXTURED, texture, x, y, u, v, width, height, texW, texH, color);
+    }
+
+    private static void drawHudText(GuiGraphicsExtractor guiGraphics, Font font, Component text, int x, int y, int color, boolean outline) {
+        int argb = 0xFF000000 | (color & 0xFFFFFF);
         if (outline) {
-            font.drawInBatch8xOutline(text.getVisualOrderText(), x, y, 0xFF000000 | (color & 0xFFFFFF), 0xFF000000,
-                    guiGraphics.pose().last().pose(), guiGraphics.bufferSource(), 15728880);
-            guiGraphics.flush();
-        } else {
-            guiGraphics.drawString(font, text, x, y, 0xFF000000 | (color & 0xFFFFFF), true);
+            guiGraphics.text(font, text, x - 1, y, 0xFF000000, false);
+            guiGraphics.text(font, text, x + 1, y, 0xFF000000, false);
+            guiGraphics.text(font, text, x, y - 1, 0xFF000000, false);
+            guiGraphics.text(font, text, x, y + 1, 0xFF000000, false);
         }
-    }
-
-    public static void renderEntityInGui(GuiGraphics guiGraphics, int xPos, int yPos, float scale, Quaternionf rotation, Entity entity, float partialTicks, boolean renderModelOnly) {
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(xPos, yPos, -60.0D);
-        guiGraphics.pose().scale(scale, scale, -scale);
-        guiGraphics.pose().mulPose(rotation);
-
-        Vector3f light0 = new Vector3f(1, -1.0F, -1.0F).normalize();
-        Vector3f light1 = new Vector3f(-1, 1.0F, 1.0F).normalize();
-        RenderSystem.setShaderLights(light0, light1);
-        EntityRenderDispatcher entityrenderdispatcher = Minecraft.getInstance().getEntityRenderDispatcher();
-        entityrenderdispatcher.setRenderShadow(false);
-        if (renderModelOnly && entityrenderdispatcher.getRenderer(entity) instanceof LivingEntityRenderer<?, ?> livingEntityRenderer) {
-            guiGraphics.pose().translate(0, 1.5F, 0.0D);
-            guiGraphics.pose().mulPose(Axis.XP.rotationDegrees(180.0F));
-            @SuppressWarnings({"unchecked", "rawtypes"})
-            LivingEntityRenderer renderer = livingEntityRenderer;
-            RenderType renderType = renderer.getModel().renderType(renderer.getTextureLocation(entity));
-            int overlay = LivingEntityRenderer.getOverlayCoords((LivingEntity) entity, 0.0F);
-            renderer.getModel().renderToBuffer(guiGraphics.pose(), guiGraphics.bufferSource().getBuffer(renderType), 15728880, overlay);
-        } else {
-            float f = entity.yRotO + (entity.getYRot() - entity.yRotO) * partialTicks;
-            if (entity instanceof LivingEntity living) {
-                float f1 = living.yBodyRotO + (living.yBodyRot - living.yBodyRotO) * partialTicks;
-                guiGraphics.pose().mulPose(Axis.YN.rotationDegrees(-f1));
-            } else {
-                guiGraphics.pose().mulPose(Axis.YN.rotationDegrees(-f));
-            }
-            entityrenderdispatcher.render(entity, 0.0D, 0.0D, 0.0D, 0.0F, partialTicks, guiGraphics.pose(), guiGraphics.bufferSource(), 15728880);
-        }
-        guiGraphics.flush();
-        entityrenderdispatcher.setRenderShadow(true);
-        guiGraphics.pose().popPose();
-        Lighting.setupFor3DItems();
+        guiGraphics.text(font, text, x, y, argb, !outline);
     }
 }

@@ -1,10 +1,9 @@
 package com.astryxion.damageindicators;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
@@ -15,9 +14,8 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
+import net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent;
 import org.joml.Quaternionf;
-import org.lwjgl.opengl.GL11;
 
 import java.util.Iterator;
 import java.util.Map;
@@ -25,12 +23,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * World-space popoffs for NeoForge 1.21.1.
+ * World-space popoffs for NeoForge 26.2.
  * <p>
  * Spawn: client tick health delta (mixin alone does not fire reliably here).
- * Render: FloatingDamageIndicators hook ({@code AFTER_ENTITIES} + event PoseStack +
- * {@code scale(s,-s,s)} billboard). Do NOT apply particle-style Z-180 on the event stack —
- * that combination makes text invisible.
+ * Render: FloatingDamageIndicators hook ({@link SubmitCustomGeometryEvent} +
+ * {@code scale(s,-s,s)} billboard via {@code submitText}). Do NOT apply particle-style
+ * Z-180 on the event stack — that combination makes text invisible.
  */
 @EventBusSubscriber(modid = DamageIndicators.MODID, value = Dist.CLIENT)
 public final class PopoffRenderer {
@@ -92,62 +90,56 @@ public final class PopoffRenderer {
     }
 
     @SubscribeEvent
-    public static void onRenderLevel(RenderLevelStageEvent event) {
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_ENTITIES || ENTRIES.isEmpty()) {
+    public static void onSubmitCustomGeometry(SubmitCustomGeometryEvent event) {
+        if (ENTRIES.isEmpty()) {
             return;
         }
         Minecraft mc = Minecraft.getInstance();
         Font font = mc.font;
-        if (font == null) {
+        if (font == null || mc.gameRenderer == null) {
             return;
         }
-        float partialTick = mc.getTimer().getGameTimeDeltaPartialTick(true);
+        float partialTick = mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
         PoseStack poseStack = event.getPoseStack();
-        MultiBufferSource.BufferSource buffer = mc.renderBuffers().bufferSource();
-        Vec3 cameraPos = event.getCamera().getPosition();
-        Quaternionf cameraRotation = event.getCamera().rotation();
+        SubmitNodeCollector collector = event.getSubmitNodeCollector();
+        var camera = event.getLevelRenderState().cameraRenderState;
+        Vec3 cameraPos = camera.pos;
+        Quaternionf cameraRotation = new Quaternionf(camera.orientation);
 
         for (Popoff popoff : ENTRIES) {
             if (popoff.classic) {
-                renderClassic(poseStack, buffer, font, cameraPos, cameraRotation, partialTick, popoff);
+                renderClassic(poseStack, collector, font, cameraPos, cameraRotation, partialTick, popoff);
             } else {
-                renderRetro(poseStack, buffer, font, cameraPos, cameraRotation, partialTick, popoff);
+                renderRetro(poseStack, collector, font, cameraPos, cameraRotation, partialTick, popoff);
             }
-            // Flush per popoff like Forge particles — batching SEE_THROUGH/outline together washed colors to black.
-            buffer.endBatch();
         }
     }
 
-    private static void renderRetro(PoseStack poseStack, MultiBufferSource.BufferSource buffer, Font font,
+    private static void renderRetro(PoseStack poseStack, SubmitNodeCollector collector, Font font,
                                     Vec3 cameraPos, Quaternionf cameraRotation, float partialTick, Popoff p) {
         double x = Mth.lerp(partialTick, p.xo, p.x) - cameraPos.x;
         double y = Mth.lerp(partialTick, p.yo, p.y) - cameraPos.y;
         double z = Mth.lerp(partialTick, p.zo, p.z) - cameraPos.z;
         float scale = Mth.lerp(partialTick, p.prevScale, p.scale) * 0.035F;
-        // Exact Forge 1.20.1 channel values; Font treats clear alpha as opaque.
         int color = opaque(p.heal ? 0x00FF00 : 0xFF0000);
         int colorOutline = opaque(p.heal ? 0x003300 : 0x330000);
 
         poseStack.pushPose();
         poseStack.translate(x, y, z);
         poseStack.mulPose(cameraRotation);
-        // Event-stack billboard (FDI). Z-180 on this stack makes text invisible.
         poseStack.scale(scale, -scale, scale);
-        poseStack.translate(0.0F, 2.0F, 0.0F); // Forge used -2 with Z-180; sign flips with -Y scale
+        poseStack.translate(0.0F, 2.0F, 0.0F);
         float f = -font.width(p.sequence) / 2.0F;
 
-        int depthFuncBackup = GL11.glGetInteger(GL11.GL_DEPTH_FUNC);
-        RenderSystem.depthFunc(GL11.GL_ALWAYS);
         if (Config.INSTANCE.active().damageParticleOutline.get()) {
-            font.drawInBatch8xOutline(p.sequence, f, 0.0F, color, colorOutline, poseStack.last().pose(), buffer, FULL_BRIGHT);
+            collector.submitText(poseStack, f, 0.0F, p.sequence, false, Font.DisplayMode.NORMAL, FULL_BRIGHT, color, 0, colorOutline);
         } else {
-            font.drawInBatch(p.sequence, f, 0.0F, color, false, poseStack.last().pose(), buffer, Font.DisplayMode.NORMAL, 0, FULL_BRIGHT);
+            collector.submitText(poseStack, f, 0.0F, p.sequence, false, Font.DisplayMode.SEE_THROUGH, FULL_BRIGHT, color, 0, 0);
         }
-        RenderSystem.depthFunc(depthFuncBackup);
         poseStack.popPose();
     }
 
-    private static void renderClassic(PoseStack poseStack, MultiBufferSource.BufferSource buffer, Font font,
+    private static void renderClassic(PoseStack poseStack, SubmitNodeCollector collector, Font font,
                                       Vec3 cameraPos, Quaternionf cameraRotation, float partialTick, Popoff p) {
         double x = Mth.lerp(partialTick, p.xo, p.x) - cameraPos.x;
         double y = Mth.lerp(partialTick, p.yo, p.y) - cameraPos.y;
@@ -164,13 +156,11 @@ public final class PopoffRenderer {
         int green = packedColor >> 8 & 255;
         int blue = packedColor & 255;
         String text = String.valueOf(p.damageAmount);
+        FormattedCharSequence sequence = Component.literal(text).getVisualOrderText();
         float posX = font.width(text) / -2.0F;
         float posY = font.lineHeight / -2.0F;
 
-        int depthFuncBackup = GL11.glGetInteger(GL11.GL_DEPTH_FUNC);
-        RenderSystem.depthFunc(GL11.GL_ALWAYS);
-        renderClassicText(poseStack, buffer, font, text, posX, posY, red, green, blue, p.useDropShadows);
-        RenderSystem.depthFunc(depthFuncBackup);
+        renderClassicText(poseStack, collector, sequence, posX, posY, red, green, blue, p.useDropShadows);
         poseStack.popPose();
 
         float maxSize = 3.0F * Config.INSTANCE.active().damageParticleSize.get().floatValue() * 3.0F;
@@ -185,8 +175,9 @@ public final class PopoffRenderer {
     }
 
     /** Full Forge ClassicDamageParticle drop-shadow / glow passes. */
-    private static void renderClassicText(PoseStack poseStack, MultiBufferSource.BufferSource buffer, Font font,
-                                          String str, float posX, float posY, int red, int green, int blue, boolean dropShadows) {
+    private static void renderClassicText(PoseStack poseStack, SubmitNodeCollector collector,
+                                          FormattedCharSequence sequence, float posX, float posY,
+                                          int red, int green, int blue, boolean dropShadows) {
         if (dropShadows) {
             int r = red, g = green, b = blue;
             if (red > green && red > blue) {
@@ -202,29 +193,28 @@ public final class PopoffRenderer {
                 g = 0;
                 b = 255;
             }
-            drawString(poseStack, buffer, font, str, posX + 1.0F, posY + 1.0F, withAlpha(200, 0, 0, 0));
+            submitString(poseStack, collector, sequence, posX + 1.0F, posY + 1.0F, withAlpha(200, 0, 0, 0));
             poseStack.pushPose();
             poseStack.translate(-0.2F, -0.2F, 0.0F);
             poseStack.scale(1.075F, 1.075F, 1.0F);
-            drawString(poseStack, buffer, font, str, posX, posY, withAlpha(64, (red + r) / 2, (green + g) / 2, (blue + b) / 2));
+            submitString(poseStack, collector, sequence, posX, posY, withAlpha(64, (red + r) / 2, (green + g) / 2, (blue + b) / 2));
             poseStack.popPose();
-            drawString(poseStack, buffer, font, str, posX, posY, withAlpha(128, (red + red + r) / 3, (green + green + g) / 3, (blue + blue + b) / 3));
+            submitString(poseStack, collector, sequence, posX, posY, withAlpha(128, (red + red + r) / 3, (green + green + g) / 3, (blue + blue + b) / 3));
             poseStack.pushPose();
             poseStack.translate(0.15F, 0.15F, 0.0F);
             poseStack.scale(0.95F, 0.95F, 1.0F);
-            drawString(poseStack, buffer, font, str, posX, posY, withAlpha(255, red, green, blue));
+            submitString(poseStack, collector, sequence, posX, posY, withAlpha(255, red, green, blue));
             poseStack.popPose();
         } else {
-            drawString(poseStack, buffer, font, str, posX, posY, withAlpha(255, red, green, blue));
+            submitString(poseStack, collector, sequence, posX, posY, withAlpha(255, red, green, blue));
         }
     }
 
-    private static void drawString(PoseStack poseStack, MultiBufferSource.BufferSource buffer, Font font, String str, float x, float y, int color) {
-        // NORMAL + depth-always matches Forge particle look (SEE_THROUGH flattened the glow to a dull orange).
-        font.drawInBatch(str, x, y, color, false, poseStack.last().pose(), buffer, Font.DisplayMode.NORMAL, 0, FULL_BRIGHT);
+    private static void submitString(PoseStack poseStack, SubmitNodeCollector collector, FormattedCharSequence sequence, float x, float y, int color) {
+        collector.submitText(poseStack, x, y, sequence, false, Font.DisplayMode.SEE_THROUGH, FULL_BRIGHT, color, 0, 0);
     }
 
-    /** Ensure RGB colors from Forge have opaque alpha for 1.21.1 font rendering. */
+    /** Ensure RGB colors from Forge have opaque alpha for font rendering. */
     private static int opaque(int rgb) {
         return (rgb & 0xFC000000) == 0 ? rgb | 0xFF000000 : rgb;
     }

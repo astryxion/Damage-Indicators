@@ -89,7 +89,7 @@ public class DamageIndicators {
     @SubscribeEvent
     public static void onPreRenderGuiLayer(RenderGuiLayerEvent.Pre event) {
         // When a menu is open, Gui layers can be skipped on 1.21.1 — ScreenEvent path draws instead.
-        if (Minecraft.getInstance().screen != null) {
+        if (Minecraft.getInstance().gui.screen() != null) {
             return;
         }
         renderHudIfNeeded(event.getGuiGraphics(), event.getPartialTick().getGameTimeDeltaPartialTick(false), event.getName().equals(VanillaGuiLayers.BOSS_OVERLAY));
@@ -112,17 +112,17 @@ public class DamageIndicators {
                 || screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>;
     }
 
-    private static void renderHudIfNeeded(net.minecraft.client.gui.GuiGraphics guiGraphics, float partialTick, boolean allowedLayer) {
+    private static void renderHudIfNeeded(net.minecraft.client.gui.GuiGraphicsExtractor guiGraphics, float partialTick, boolean allowedLayer) {
         if (!allowedLayer || !Config.INSTANCE.active().hudIndicatorEnabled.get()) {
             return;
         }
         Minecraft mc = Minecraft.getInstance();
         // Leaving world / title screens: level or camera are torn down; rendering a cached entity NPEs.
-        if (mc.options.hideGui || mc.level == null || mc.player == null || mc.cameraEntity == null
+        if (mc.gui.hud.isHidden() || mc.level == null || mc.player == null || mc.getCameraEntity() == null
                 || damageIndicatorEntity == null) {
             return;
         }
-        var camera = mc.gameRenderer.getMainCamera();
+        var camera = mc.gameRenderer.mainCamera();
         if (!camera.isInitialized()) {
             return;
         }
@@ -140,30 +140,31 @@ public class DamageIndicators {
     @SubscribeEvent
     public static void onClientTick(ClientTickEvent.Pre event) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null || mc.cameraEntity == null) {
+        if (mc.level == null || mc.getCameraEntity() == null) {
             if (damageIndicatorEntity != null) {
                 clearClientState();
             }
             return;
         }
         // Freeze linger while a menu is open so the HUD does not expire mid-inventory/pause.
-        if (mc.screen != null) {
+        if (mc.gui.screen() != null) {
             return;
         }
         Config.StyleSettings cfg = Config.INSTANCE.active();
         double maxPickDistance = cfg.maxDistance.get();
         double pickDistance = maxPickDistance;
-        float partialTick = mc.getTimer().getGameTimeDeltaPartialTick(false);
-        Vec3 vec3 = mc.cameraEntity.getEyePosition(partialTick);
-        HitResult hitResult = mc.cameraEntity.pick(pickDistance, partialTick, false);
+        float partialTick = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
+        Entity cameraEntity = mc.getCameraEntity();
+        Vec3 vec3 = cameraEntity.getEyePosition(partialTick);
+        HitResult hitResult = cameraEntity.pick(pickDistance, partialTick, false);
         LivingEntity found = null;
         if (hitResult != null && hitResult.getType() != HitResult.Type.MISS) {
             pickDistance = hitResult.getLocation().distanceToSqr(vec3);
         }
-        Vec3 vec31 = mc.cameraEntity.getViewVector(1.0F);
+        Vec3 vec31 = cameraEntity.getViewVector(1.0F);
         Vec3 vec32 = vec3.add(vec31.x * maxPickDistance, vec31.y * maxPickDistance, vec31.z * maxPickDistance);
-        AABB aabb = mc.cameraEntity.getBoundingBox().expandTowards(vec31.scale(maxPickDistance)).inflate(3.0D, 3.0D, 3.0D);
-        EntityHitResult entityhitresult = ProjectileUtil.getEntityHitResult(mc.cameraEntity, vec3, vec32, aabb, (lookingAt) -> {
+        AABB aabb = cameraEntity.getBoundingBox().expandTowards(vec31.scale(maxPickDistance)).inflate(3.0D, 3.0D, 3.0D);
+        EntityHitResult entityhitresult = ProjectileUtil.getEntityHitResult(cameraEntity, vec3, vec32, aabb, (lookingAt) -> {
             return !lookingAt.isSpectator() && lookingAt.isPickable();
         }, pickDistance);
         if (entityhitresult != null) {

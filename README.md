@@ -1,6 +1,6 @@
 # Damage Indicators (Expanded)
 
-A client-side damage indicators mod for Minecraft **NeoForge 1.21.1** with multiple visual styles.
+A client-side damage indicators mod for Minecraft **NeoForge 26.2** with multiple visual styles.
 
 Choose a modern Retro Damage Indicators look, or switch to the classic nostalgic Damage Indicators 1.12.2 HUD and popoff numbers - all from one config option.
 

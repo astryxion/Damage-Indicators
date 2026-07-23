@@ -1,17 +1,17 @@
 package com.astryxion.damageindicators;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.EntityTypeTags;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ambient.AmbientCreature;
-import net.minecraft.world.entity.animal.AbstractGolem;
-import net.minecraft.world.entity.animal.WaterAnimal;
+import net.minecraft.world.entity.animal.golem.AbstractGolem;
+import net.minecraft.world.entity.animal.fish.WaterAnimal;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.monster.Witch;
 import net.minecraft.world.entity.npc.Npc;
-import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.common.Tags;
 
@@ -35,10 +35,10 @@ public enum MobTypes {
     UNKNOWN,
     BOSS;
 
-    private final ResourceLocation texture;
+    private final Identifier texture;
 
     MobTypes() {
-        texture = ResourceLocation.fromNamespaceAndPath("damageindicators", "textures/gui/mob_types/" + name().toLowerCase(Locale.ROOT) + ".png");
+        texture = Identifier.fromNamespaceAndPath("damageindicators", "textures/gui/mob_types/" + name().toLowerCase(Locale.ROOT) + ".png");
     }
 
     public static MobTypes getTypeFor(Entity entity) {
@@ -46,22 +46,22 @@ public enum MobTypes {
             return PLAYER;
         }
         if (entity instanceof LivingEntity living) {
-            if (living.getType().is(Tags.EntityTypes.BOSSES)) {
+            if (living.getType().builtInRegistryHolder().is(Tags.EntityTypes.BOSSES)) {
                 return BOSS;
             }
-            if (living.getType().is(EntityTypeTags.AQUATIC) || living instanceof WaterAnimal || living.canBreatheUnderwater()) {
-                if (living.getType().is(EntityTypeTags.ARTHROPOD)) {
+            if (living.getType().builtInRegistryHolder().is(EntityTypeTags.AQUATIC) || living instanceof WaterAnimal || living.canBreatheUnderwater()) {
+                if (living.getType().builtInRegistryHolder().is(EntityTypeTags.ARTHROPOD)) {
                     return WATER_ARTHROPOD;
                 }
                 return living instanceof Enemy ? WATER_MONSTER : WATER_ANIMAL;
             }
-            if (living.getType().is(EntityTypeTags.UNDEAD)) {
+            if (living.getType().builtInRegistryHolder().is(EntityTypeTags.UNDEAD)) {
                 return living instanceof Enemy ? UNDEAD : UNDEAD_ANIMAL;
             }
-            if (living.getType().is(EntityTypeTags.ARTHROPOD)) {
+            if (living.getType().builtInRegistryHolder().is(EntityTypeTags.ARTHROPOD)) {
                 return living instanceof Enemy ? ARTHROPOD_MONSTER : ARTHROPOD;
             }
-            if (living.getType().is(EntityTypeTags.ILLAGER) || living instanceof Witch) {
+            if (living.getType().builtInRegistryHolder().is(EntityTypeTags.ILLAGER) || living instanceof Witch) {
                 return ILLAGER;
             }
             if (living instanceof AbstractGolem) {
@@ -88,13 +88,13 @@ public enum MobTypes {
      * 0 = undead/fire-immune, 1 = default living, 2 = humanoid, 3 = arthropod, 4 = boss.
      */
     public static int getCleanSkinIconIndex(LivingEntity entity) {
-        if (entity.getType().is(Tags.EntityTypes.BOSSES)) {
+        if (entity.getType().builtInRegistryHolder().is(Tags.EntityTypes.BOSSES)) {
             return 4;
         }
-        if (entity.getType().is(EntityTypeTags.UNDEAD) || entity.fireImmune()) {
+        if (entity.getType().builtInRegistryHolder().is(EntityTypeTags.UNDEAD) || entity.fireImmune()) {
             return 0;
         }
-        if (entity.getType().is(EntityTypeTags.ARTHROPOD)) {
+        if (entity.getType().builtInRegistryHolder().is(EntityTypeTags.ARTHROPOD)) {
             return 3;
         }
         if (entity instanceof Player || entity instanceof Witch || entity instanceof Villager || entity instanceof AbstractGolem || entity instanceof Npc) {
@@ -104,10 +104,10 @@ public enum MobTypes {
     }
 
     public static boolean isHostileForCleanSkin(LivingEntity entity) {
-        return entity instanceof Enemy || entity.getType().is(Tags.EntityTypes.BOSSES);
+        return entity instanceof Enemy || entity.getType().builtInRegistryHolder().is(Tags.EntityTypes.BOSSES);
     }
 
-    public ResourceLocation getTexture() {
+    public Identifier getTexture() {
         return texture;
     }
 }

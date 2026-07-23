@@ -1,51 +1,39 @@
 package com.astryxion.damageindicators;
 
-import com.mojang.blaze3d.platform.Lighting;
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
-import net.minecraft.client.renderer.entity.LivingEntityRenderer;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.resources.MobEffectTextureManager;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.Hud;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffectUtil;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.boss.wither.WitherBoss;
-import net.minecraft.world.entity.monster.Slime;
-import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.client.event.RenderGuiLayerEvent;
-import org.joml.Quaternionf;
+import org.joml.Matrix3x2fStack;
 
-import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Style 2 HUD — classic Damage Indicators 1.12.2 Clean skin.
+ * Ported to NeoForge 26.1 GuiGraphicsExtractor (Matrix3x2fStack + RenderPipelines).
  */
 public final class Style2HudRenderer {
     private static final String MODID = DamageIndicators.MODID;
 
-    // Original Damage Indicators 1.12.2 default ("Clean") skin assets
-    private static final ResourceLocation TEXTURE_BACKGROUND = ResourceLocation.fromNamespaceAndPath(MODID, "textures/gui/default/background.png");
-    private static final ResourceLocation TEXTURE_FRAME = ResourceLocation.fromNamespaceAndPath(MODID, "textures/gui/default/di_frame_skin.png");
-    private static final ResourceLocation TEXTURE_HEALTH = ResourceLocation.fromNamespaceAndPath(MODID, "textures/gui/default/health.png");
-    private static final ResourceLocation TEXTURE_DAMAGE = ResourceLocation.fromNamespaceAndPath(MODID, "textures/gui/default/damage.png");
-    private static final ResourceLocation TEXTURE_NAMEPLATE = ResourceLocation.fromNamespaceAndPath(MODID, "textures/gui/default/name_plate.png");
-    private static final ResourceLocation TEXTURE_TYPE_ICONS = ResourceLocation.fromNamespaceAndPath(MODID, "textures/gui/default/di_type_icons.png");
-    private static final ResourceLocation TEXTURE_POTION_LEFT = ResourceLocation.fromNamespaceAndPath(MODID, "textures/gui/default/left_potions.png");
-    private static final ResourceLocation TEXTURE_POTION_CENTER = ResourceLocation.fromNamespaceAndPath(MODID, "textures/gui/default/center_potions.png");
-    private static final ResourceLocation TEXTURE_POTION_RIGHT = ResourceLocation.fromNamespaceAndPath(MODID, "textures/gui/default/right_potions.png");
+    private static final Identifier TEXTURE_BACKGROUND = Identifier.fromNamespaceAndPath(MODID, "textures/gui/default/background.png");
+    private static final Identifier TEXTURE_FRAME = Identifier.fromNamespaceAndPath(MODID, "textures/gui/default/di_frame_skin.png");
+    private static final Identifier TEXTURE_HEALTH = Identifier.fromNamespaceAndPath(MODID, "textures/gui/default/health.png");
+    private static final Identifier TEXTURE_DAMAGE = Identifier.fromNamespaceAndPath(MODID, "textures/gui/default/damage.png");
+    private static final Identifier TEXTURE_NAMEPLATE = Identifier.fromNamespaceAndPath(MODID, "textures/gui/default/name_plate.png");
+    private static final Identifier TEXTURE_TYPE_ICONS = Identifier.fromNamespaceAndPath(MODID, "textures/gui/default/di_type_icons.png");
+    private static final Identifier TEXTURE_POTION_LEFT = Identifier.fromNamespaceAndPath(MODID, "textures/gui/default/left_potions.png");
+    private static final Identifier TEXTURE_POTION_CENTER = Identifier.fromNamespaceAndPath(MODID, "textures/gui/default/center_potions.png");
+    private static final Identifier TEXTURE_POTION_RIGHT = Identifier.fromNamespaceAndPath(MODID, "textures/gui/default/right_potions.png");
 
-    // skin.cfg sizes / positions for the default Clean skin
     private static final int BACKGROUND_WIDTH = 49;
     private static final int BACKGROUND_HEIGHT = 51;
     private static final int BACKGROUND_X = -4;
@@ -74,7 +62,6 @@ public final class Style2HudRenderer {
     private static final int POTION_BOX_Y = 31;
     private static final int POTION_CENTER_WIDTH = 20;
 
-    // Source texture pixel sizes
     private static final int TEX_BACKGROUND = 64;
     private static final int TEX_FRAME_W = 350;
     private static final int TEX_FRAME_H = 128;
@@ -91,9 +78,8 @@ public final class Style2HudRenderer {
     private static final int TEX_POTION_RIGHT_W = 8;
     private static final int TEX_POTION_RIGHT_H = 32;
 
-    // Frame extents relative to loc (used for screen alignment)
-    private static final int HUD_EXTENT_RIGHT = FRAME_X + FRAME_WIDTH; // 163
-    private static final int HUD_EXTENT_BOTTOM = FRAME_Y + FRAME_HEIGHT; // 59
+    private static final int HUD_EXTENT_RIGHT = FRAME_X + FRAME_WIDTH;
+    private static final int HUD_EXTENT_BOTTOM = FRAME_Y + FRAME_HEIGHT;
 
     private Style2HudRenderer() {
     }
@@ -102,7 +88,7 @@ public final class Style2HudRenderer {
         render(event.getGuiGraphics(), event.getPartialTick().getGameTimeDeltaPartialTick(false), entity);
     }
 
-    public static void render(GuiGraphics guiGraphics, float partialTick, LivingEntity entity) {
+    public static void render(GuiGraphicsExtractor guiGraphics, float partialTick, LivingEntity entity) {
         Config.StyleSettings cfg = Config.INSTANCE.active();
         float entityHealth = Math.min(entity.getHealth(), entity.getMaxHealth());
         float entityMaxHealth = Math.max(entity.getMaxHealth(), 0.0F);
@@ -116,132 +102,96 @@ public final class Style2HudRenderer {
                 ? cfg.hudIndicatorPositionY.get()
                 : guiGraphics.guiHeight() - Math.round(HUD_EXTENT_BOTTOM * scale) - cfg.hudIndicatorPositionY.get();
 
-        PoseStack poseStack = guiGraphics.pose();
-        poseStack.pushPose();
-        poseStack.translate(xOffset, yOffset, 0);
-        poseStack.scale(scale, scale, scale);
+        Matrix3x2fStack pose = guiGraphics.pose();
+        pose.pushMatrix();
+        pose.translate(xOffset, yOffset);
+        pose.scale(scale, scale);
 
         float backgroundOpacity = Mth.clamp(cfg.hudIndicatorBackgroundOpacity.get().floatValue(), 0.0F, 1.0F);
+        int bgColor = (Mth.clamp((int) (backgroundOpacity * 255.0F), 0, 255) << 24) | 0xFFFFFF;
+        blitFull(guiGraphics, TEXTURE_BACKGROUND, BACKGROUND_X, BACKGROUND_Y, BACKGROUND_WIDTH, BACKGROUND_HEIGHT, TEX_BACKGROUND, TEX_BACKGROUND, bgColor);
 
-        // 1. Background
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, backgroundOpacity);
-        blitFull(guiGraphics, TEXTURE_BACKGROUND, BACKGROUND_X, BACKGROUND_Y, BACKGROUND_WIDTH, BACKGROUND_HEIGHT, TEX_BACKGROUND, TEX_BACKGROUND);
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-
-        // 2. Mob preview (scissored to portrait box)
         if (entity.getHealth() > 0.0F) {
             int scissorMinX = xOffset + Math.round(scale * MOB_PREVIEW_X);
             int scissorMinY = yOffset + Math.round(scale * MOB_PREVIEW_Y);
             int scissorMaxX = xOffset + Math.round(scale * (MOB_PREVIEW_X + BACKGROUND_WIDTH));
             int scissorMaxY = yOffset + Math.round(scale * (MOB_PREVIEW_Y + BACKGROUND_HEIGHT));
+
+            // DI-NeoForge-1.21.11: pop HUD pose before PIP submit so absolute box coords stay correct.
+            pose.popMatrix();
             guiGraphics.enableScissor(scissorMinX, scissorMinY, scissorMaxX, scissorMaxY);
-            renderPortraitEntity(guiGraphics, entity, partialTick);
-            guiGraphics.flush();
+            renderPortraitEntity(guiGraphics, entity, scissorMinX, scissorMinY, scissorMaxX, scissorMaxY, scale);
             guiGraphics.disableScissor();
-            // Push later GUI layers above the portrait in Z instead of clearing the
-            // depth buffer (clearing depth here corrupts pause-menu / overlay text on 1.21.1).
-            guiGraphics.pose().translate(0.0F, 0.0F, 200.0F);
+            pose.pushMatrix();
+            pose.translate(xOffset, yOffset);
+            pose.scale(scale, scale);
         }
 
-        // 3. Health bar (damage strip + health fill)
         drawHealthBar(guiGraphics, healthRatio);
-
-        // 4. Frame
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-        blitFull(guiGraphics, TEXTURE_FRAME, FRAME_X, FRAME_Y, FRAME_WIDTH, FRAME_HEIGHT, TEX_FRAME_W, TEX_FRAME_H);
-
-        // 5. Name plate
-        blitFull(guiGraphics, TEXTURE_NAMEPLATE, NAME_PLATE_X, NAME_PLATE_Y, NAME_PLATE_WIDTH, NAME_PLATE_HEIGHT, 1, 1);
-
-        // 6. Mob type icon
+        blitFull(guiGraphics, TEXTURE_FRAME, FRAME_X, FRAME_Y, FRAME_WIDTH, FRAME_HEIGHT, TEX_FRAME_W, TEX_FRAME_H, 0xFFFFFFFF);
+        blitFull(guiGraphics, TEXTURE_NAMEPLATE, NAME_PLATE_X, NAME_PLATE_Y, NAME_PLATE_WIDTH, NAME_PLATE_HEIGHT, 1, 1, 0xFFFFFFFF);
         drawMobTypeIcon(guiGraphics, entity);
-
-        // 7. Potion boxes
         if (cfg.hudPotionEffects.get()) {
             drawPotionBoxes(guiGraphics, entity);
         }
-
-        // 8. Health text
         drawHealthText(guiGraphics, entityHealth, entityMaxHealth);
-
-        // 9. Name text
         drawNameText(guiGraphics, entity);
 
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.enableDepthTest();
-        poseStack.popPose();
-        guiGraphics.flush();
-        Lighting.setupFor3DItems();
+        pose.popMatrix();
     }
 
-    private static void blitFull(GuiGraphics guiGraphics, ResourceLocation texture, int x, int y, int width, int height, int texW, int texH) {
-        guiGraphics.blit(texture, x, y, width, height, 0.0F, 0.0F, texW, texH, texW, texH);
+    /**
+     * Stretch the full source texture (texW×texH) into the on-screen quad (width×height).
+     * Must use the uWidth/vHeight overload — the shorter blit() form samples only width×height
+     * of the atlas, which shreds the Clean skin frame (350×128 → 178×64).
+     */
+    private static void blitFull(GuiGraphicsExtractor guiGraphics, Identifier texture, int x, int y, int width, int height, int texW, int texH, int color) {
+        guiGraphics.blit(RenderPipelines.GUI_TEXTURED, texture, x, y, 0.0F, 0.0F, width, height, texW, texH, texW, texH, color);
     }
 
-    private static void drawHealthBar(GuiGraphics guiGraphics, float healthRatio) {
+    private static void blitRegion(GuiGraphicsExtractor guiGraphics, Identifier texture, int x, int y, int width, int height,
+                                   float u, float v, int uWidth, int vHeight, int texW, int texH, int color) {
+        guiGraphics.blit(RenderPipelines.GUI_TEXTURED, texture, x, y, u, v, width, height, uWidth, vHeight, texW, texH, color);
+    }
+
+    private static void drawHealthBar(GuiGraphicsExtractor guiGraphics, float healthRatio) {
         boolean colorblind = Config.INSTANCE.active().colorblindHealthBar.get();
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-
-        // Missing HP background: full bar width, UV from healthRatio → 1 (original DI behavior)
         if (healthRatio < 1.0F) {
             float uStart = healthRatio * TEX_DAMAGE_W;
             int uWidth = Math.max(1, Math.round((1.0F - healthRatio) * TEX_DAMAGE_W));
-            if (colorblind) {
-                RenderSystem.setShaderColor(0.1F, 0.1F, 0.1F, 1.0F);
-            } else {
-                RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-            }
-            guiGraphics.blit(TEXTURE_DAMAGE, HEALTH_BAR_X, HEALTH_BAR_Y, HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT,
-                    uStart, 0.0F, uWidth, TEX_DAMAGE_H, TEX_DAMAGE_W, TEX_DAMAGE_H);
+            int color = colorblind ? 0xFF1A1A1A : 0xFFFFFFFF;
+            blitRegion(guiGraphics, TEXTURE_DAMAGE, HEALTH_BAR_X, HEALTH_BAR_Y, HEALTH_BAR_WIDTH, HEALTH_BAR_HEIGHT,
+                    uStart, 0.0F, uWidth, TEX_DAMAGE_H, TEX_DAMAGE_W, TEX_DAMAGE_H, color);
         }
-
-        // Current HP fill: left-aligned, UV 0 → healthRatio
         float fillWidth = HEALTH_BAR_WIDTH * healthRatio;
         if (fillWidth > 0.0F) {
             int uWidth = Math.max(1, Math.round(healthRatio * TEX_HEALTH_W));
-            if (colorblind) {
-                RenderSystem.setShaderColor(1.0F, 0.9F, 0.15F, 1.0F);
-            } else {
-                RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-            }
-            guiGraphics.blit(TEXTURE_HEALTH, HEALTH_BAR_X, HEALTH_BAR_Y, Math.round(fillWidth), HEALTH_BAR_HEIGHT,
-                    0.0F, 0.0F, uWidth, TEX_HEALTH_H, TEX_HEALTH_W, TEX_HEALTH_H);
+            int color = colorblind ? 0xFFFFE626 : 0xFFFFFFFF;
+            blitRegion(guiGraphics, TEXTURE_HEALTH, HEALTH_BAR_X, HEALTH_BAR_Y, Math.round(fillWidth), HEALTH_BAR_HEIGHT,
+                    0.0F, 0.0F, uWidth, TEX_HEALTH_H, TEX_HEALTH_W, TEX_HEALTH_H, color);
         }
-
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
-    private static void drawMobTypeIcon(GuiGraphics guiGraphics, LivingEntity entity) {
+    private static void drawMobTypeIcon(GuiGraphicsExtractor guiGraphics, LivingEntity entity) {
         int iconIndex = MobTypes.getCleanSkinIconIndex(entity);
         boolean boss = iconIndex == 4;
         boolean hostile = MobTypes.isHostileForCleanSkin(entity);
-
+        int color;
         if (boss) {
-            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 0.6F);
+            color = 0x99FFFFFF;
         } else if (hostile) {
-            RenderSystem.setShaderColor(1.0F, 0.0F, 0.0F, 0.6F);
+            color = 0x99FF0000;
         } else {
-            RenderSystem.setShaderColor(0.0F, 1.0F, 0.0F, 0.6F);
+            color = 0x9900FF00;
         }
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-
         float uStep = TEX_TYPE_W / 5.0F;
         float uOffset = iconIndex * uStep;
         int uWidth = Math.round(uStep);
-        guiGraphics.blit(TEXTURE_TYPE_ICONS, MOB_TYPE_X, MOB_TYPE_Y, MOB_TYPE_WIDTH, MOB_TYPE_HEIGHT,
-                uOffset, 0.0F, uWidth, TEX_TYPE_H, TEX_TYPE_W, TEX_TYPE_H);
-
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+        blitRegion(guiGraphics, TEXTURE_TYPE_ICONS, MOB_TYPE_X, MOB_TYPE_Y, MOB_TYPE_WIDTH, MOB_TYPE_HEIGHT,
+                uOffset, 0.0F, uWidth, TEX_TYPE_H, TEX_TYPE_W, TEX_TYPE_H, color);
     }
 
-    private static void drawPotionBoxes(GuiGraphics guiGraphics, LivingEntity entity) {
+    private static void drawPotionBoxes(GuiGraphicsExtractor guiGraphics, LivingEntity entity) {
         List<MobEffectInstance> effects = new ArrayList<>();
         for (MobEffectInstance effect : entity.getActiveEffects()) {
             if (effect.getDuration() > 10 && effect.showIcon() && effect.isVisible()) {
@@ -252,44 +202,35 @@ public final class Style2HudRenderer {
             return;
         }
 
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+        blitFull(guiGraphics, TEXTURE_POTION_LEFT, POTION_BOX_X, POTION_BOX_Y, POTION_BOX_SIDE_WIDTH, POTION_BOX_HEIGHT, TEX_POTION_LEFT_W, TEX_POTION_LEFT_H, 0xFFFFFFFF);
 
-        blitFull(guiGraphics, TEXTURE_POTION_LEFT, POTION_BOX_X, POTION_BOX_Y, POTION_BOX_SIDE_WIDTH, POTION_BOX_HEIGHT, TEX_POTION_LEFT_W, TEX_POTION_LEFT_H);
-
-        MobEffectTextureManager effectTextures = Minecraft.getInstance().getMobEffectTextures();
         Font font = Minecraft.getInstance().font;
-        PoseStack poseStack = guiGraphics.pose();
+        Matrix3x2fStack pose = guiGraphics.pose();
 
         for (int i = 0; i < effects.size(); i++) {
             MobEffectInstance effect = effects.get(i);
             int cellX = POTION_BOX_X + i * POTION_CENTER_WIDTH + POTION_BOX_SIDE_WIDTH;
-            blitFull(guiGraphics, TEXTURE_POTION_CENTER, cellX, POTION_BOX_Y, POTION_CENTER_WIDTH, POTION_BOX_HEIGHT, TEX_POTION_CENTER_W, TEX_POTION_CENTER_H);
+            blitFull(guiGraphics, TEXTURE_POTION_CENTER, cellX, POTION_BOX_Y, POTION_CENTER_WIDTH, POTION_BOX_HEIGHT, TEX_POTION_CENTER_W, TEX_POTION_CENTER_H, 0xFFFFFFFF);
 
-            TextureAtlasSprite sprite = effectTextures.get(effect.getEffect());
+            Identifier sprite = Hud.getMobEffectSprite(effect.getEffect());
             int iconSize = POTION_BOX_HEIGHT - 4;
-            guiGraphics.blit(cellX + 2, POTION_BOX_Y + 2, 0, iconSize, iconSize, sprite);
+            guiGraphics.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, cellX + 2, POTION_BOX_Y + 2, iconSize, iconSize);
 
             Component duration = MobEffectUtil.formatDuration(effect, 1.0F, Minecraft.getInstance().level != null ? Minecraft.getInstance().level.tickRateManager().tickrate() : 20.0F);
             String durationText = duration.getString();
             int textWidth = font.width(durationText);
-            poseStack.pushPose();
-            // Original: translate(cellX + 13 - textWidth/2, ...) then scale 0.815
-            poseStack.translate(cellX + 13 - textWidth / 2.0F, POTION_BOX_Y + POTION_BOX_HEIGHT - font.lineHeight * 0.815F, 0.1F);
-            poseStack.scale(0.815F, 0.815F, 0.815F);
-            int durationColor = 0xFFFF80;
-            font.drawInBatch(Component.literal(durationText).getVisualOrderText(), 0.0F, 0.0F, durationColor, true,
-                    poseStack.last().pose(), guiGraphics.bufferSource(), Font.DisplayMode.NORMAL, 0, 15728880);
-            poseStack.popPose();
+            pose.pushMatrix();
+            pose.translate(cellX + 13 - textWidth / 2.0F, POTION_BOX_Y + POTION_BOX_HEIGHT - font.lineHeight * 0.815F);
+            pose.scale(0.815F, 0.815F);
+            guiGraphics.text(font, durationText, 0, 0, 0xFFFFFF80, true);
+            pose.popMatrix();
         }
 
         int rightX = POTION_BOX_X + effects.size() * POTION_CENTER_WIDTH + POTION_BOX_SIDE_WIDTH;
-        blitFull(guiGraphics, TEXTURE_POTION_RIGHT, rightX, POTION_BOX_Y, POTION_BOX_SIDE_WIDTH, POTION_BOX_HEIGHT, TEX_POTION_RIGHT_W, TEX_POTION_RIGHT_H);
-        guiGraphics.flush();
+        blitFull(guiGraphics, TEXTURE_POTION_RIGHT, rightX, POTION_BOX_Y, POTION_BOX_SIDE_WIDTH, POTION_BOX_HEIGHT, TEX_POTION_RIGHT_W, TEX_POTION_RIGHT_H, 0xFFFFFFFF);
     }
 
-    private static void drawHealthText(GuiGraphics guiGraphics, float entityHealth, float entityMaxHealth) {
+    private static void drawHealthText(GuiGraphicsExtractor guiGraphics, float entityHealth, float entityMaxHealth) {
         Config.StyleSettings cfg = Config.INSTANCE.active();
         Font font = Minecraft.getInstance().font;
         String divisor = cfg.healthSeperator.get() ? " | " : "/";
@@ -298,184 +239,66 @@ public final class Style2HudRenderer {
         if (cfg.healthDecimals.get()) {
             healthText = DamageIndicators.roundHealth(entityHealth) + divisor + DamageIndicators.roundHealth(displayMax);
         } else {
-            // Original DI used MathHelper.ceil for both values
             healthText = Mth.ceil(entityHealth) + divisor + Mth.ceil(displayMax);
         }
 
         Component healthComponent = Component.literal(healthText);
         int healthWidth = font.width(healthComponent);
-        int healthColor = 0xFFFFFF;
-        PoseStack poseStack = guiGraphics.pose();
+        Matrix3x2fStack pose = guiGraphics.pose();
 
-        // Original: if font height + 2 > bar height, draw at 0.7 scale bottom-aligned; else centered
         if (font.lineHeight + 2 > HEALTH_BAR_HEIGHT) {
-            poseStack.pushPose();
+            pose.pushMatrix();
             float textX = HEALTH_BAR_X + (HEALTH_BAR_WIDTH - healthWidth * 0.7F) / 2.0F;
             float textY = HEALTH_BAR_Y + HEALTH_BAR_HEIGHT - font.lineHeight * 0.7F - 0.5F;
-            poseStack.translate(textX, textY, 0);
-            poseStack.scale(0.7F, 0.7F, 1.0F);
-            drawHudText(guiGraphics, healthComponent, 0.0F, 0.0F, healthColor, cfg.hudHealthTextOutline.get());
-            poseStack.popPose();
+            pose.translate(textX, textY);
+            pose.scale(0.7F, 0.7F);
+            drawHudText(guiGraphics, healthComponent, 0, 0, 0xFFFFFF, cfg.hudHealthTextOutline.get());
+            pose.popMatrix();
         } else {
             float textX = HEALTH_BAR_X + (HEALTH_BAR_WIDTH - healthWidth) / 2.0F;
             float textY = HEALTH_BAR_Y + (HEALTH_BAR_HEIGHT - font.lineHeight) / 2.0F;
-            drawHudText(guiGraphics, healthComponent, textX, textY, healthColor, cfg.hudHealthTextOutline.get());
+            drawHudText(guiGraphics, healthComponent, Math.round(textX), Math.round(textY), 0xFFFFFF, cfg.hudHealthTextOutline.get());
         }
     }
 
-    private static void drawNameText(GuiGraphics guiGraphics, LivingEntity entity) {
+    private static void drawNameText(GuiGraphicsExtractor guiGraphics, LivingEntity entity) {
         Font font = Minecraft.getInstance().font;
         String name = entity.getDisplayName().getString();
-        // Match original DI default path: prefix "Baby " for babies (no forced italic)
         if (entity.isBaby() && !name.toLowerCase().contains("baby")) {
             name = "Baby " + name;
         }
         Component nameComponent = Component.literal(name);
         int nameWidth = font.width(nameComponent);
-        float textX = NAME_PLATE_X + (NAME_PLATE_WIDTH - nameWidth) / 2.0F;
-        float textY = NAME_PLATE_Y + (NAME_PLATE_HEIGHT - font.lineHeight) / 2.0F;
+        int textX = NAME_PLATE_X + (NAME_PLATE_WIDTH - nameWidth) / 2;
+        int textY = NAME_PLATE_Y + (NAME_PLATE_HEIGHT - font.lineHeight) / 2;
         drawHudText(guiGraphics, nameComponent, textX, textY, 0xFFFFFF, Config.INSTANCE.active().hudNameTextOutline.get());
     }
 
-    private static void drawHudText(GuiGraphics guiGraphics, Component text, float x, float y, int color, boolean outline) {
-        PoseStack poseStack = guiGraphics.pose();
+    private static void drawHudText(GuiGraphicsExtractor guiGraphics, Component text, int x, int y, int color, boolean outline) {
         Font font = Minecraft.getInstance().font;
         int argb = 0xFF000000 | (color & 0xFFFFFF);
         if (outline) {
-            font.drawInBatch8xOutline(text.getVisualOrderText(), x, y, argb, 0xFF000000, poseStack.last().pose(), guiGraphics.bufferSource(), 15728880);
+            guiGraphics.text(font, text, x - 1, y, 0xFF000000, false);
+            guiGraphics.text(font, text, x + 1, y, 0xFF000000, false);
+            guiGraphics.text(font, text, x, y - 1, 0xFF000000, false);
+            guiGraphics.text(font, text, x, y + 1, 0xFF000000, false);
+            guiGraphics.text(font, text, x, y, argb, false);
         } else {
-            guiGraphics.drawString(font, text, Math.round(x), Math.round(y), argb, true);
+            guiGraphics.text(font, text, x, y, argb, true);
         }
-        guiGraphics.flush();
     }
 
-    private static void renderPortraitEntity(GuiGraphics guiGraphics, LivingEntity entity, float partialTicks) {
+    private static void renderPortraitEntity(GuiGraphicsExtractor guiGraphics, LivingEntity entity, int x0, int y0, int x1, int y1, float hudScale) {
         Config.StyleSettings cfg = Config.INSTANCE.active();
-        // Defaults match original Damage Indicators EntityConfigurationEntry
-        float scaleFactor = cfg.hudEntitySize.get().floatValue();
-        float yOffset = -5.0F;
-        float xOffset = 0.0F;
-        float babyScaleFactor = 2.0F;
-        float entitySizeScaling = 0.0F;
+        // Same BB base as Style 1 (38), then clamp so the model cannot overflow the portrait box.
+        int desired = HudPortraitRenderer.style1Scale(entity, 38.0F, hudScale);
+        int scale = HudPortraitRenderer.fitToPortraitBox(desired, entity, x1 - x0, y1 - y0);
 
-        if (entity instanceof Player) {
-            yOffset = 20.0F;
-        } else if (entity instanceof Slime) {
-            // Original DI EntityConfigurationEntry defaults for Slime/MagmaCube
-            scaleFactor = 5.0F;
-            entitySizeScaling = 2.0F;
-            yOffset = -5.0F;
-        } else if (entity instanceof WitherBoss) {
-            // Original DI: ScaleFactor=15, YOffset=5
-            scaleFactor = 15.0F;
-            yOffset = 5.0F;
-        }
-
-        float eyeAdj = (3.0F - entity.getEyeHeight()) * entitySizeScaling;
-        float finalScale = scaleFactor + scaleFactor * eyeAdj;
-        if (entity.isBaby()) {
-            finalScale *= babyScaleFactor;
-        }
-        finalScale *= 0.85F;
-
-        // Original: translate to (previewX + 25 + XOffset, previewY + 52 + YOffset), self gets -30 Y
-        float entityX = MOB_PREVIEW_X + 25.0F + xOffset;
-        float entityY = MOB_PREVIEW_Y + 52.0F + yOffset;
-        if (entity == Minecraft.getInstance().player) {
-            entityY -= 30.0F;
-        }
-
-        // Original DI lockPosition: -30° after GUI Z-flip.
-        float lockedYaw = 180.0F - 30.0F;
-        Quaternionf poseRotation = new Quaternionf().rotateZ((float) Math.PI);
-        Quaternionf cameraOrientation = new Quaternionf();
-        renderEntityInGui(guiGraphics, entityX, entityY, finalScale, poseRotation, cameraOrientation, entity, partialTicks, lockedYaw);
-    }
-
-    public static void renderEntityInGui(GuiGraphics guiGraphics, float xPos, float yPos, float scale, Quaternionf rotation, Entity entity, float partialTicks) {
-        renderEntityInGui(guiGraphics, xPos, yPos, scale, rotation, null, entity, partialTicks, Float.NaN);
-    }
-
-    public static void renderEntityInGui(GuiGraphics guiGraphics, float xPos, float yPos, float scale, Quaternionf poseRotation, @Nullable Quaternionf cameraOrientation, Entity entity, float partialTicks, float lockedYawDegrees) {
-        boolean renderModelOnly = DamageIndicators.isRenderModelOnly();
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(xPos, yPos, 50.0D);
-        // Original DI flattened Z to 0.1 so large models stay inside the portrait better
-        guiGraphics.pose().scale(scale, scale, -0.1F);
-        guiGraphics.pose().mulPose(poseRotation);
-        Lighting.setupForEntityInInventory();
-
-        EntityRenderDispatcher entityrenderdispatcher = Minecraft.getInstance().getEntityRenderDispatcher();
-        if (cameraOrientation != null) {
-            cameraOrientation.conjugate();
-            entityrenderdispatcher.overrideCameraOrientation(cameraOrientation);
-        }
-        entityrenderdispatcher.setRenderShadow(false);
-
-        int hurtTimeBackup = 0;
-        float yBodyRot = 0, yBodyRotO = 0, yRot = 0, yRotO = 0, xRot = 0, xRotO = 0, yHeadRot = 0, yHeadRotO = 0;
-        boolean locked = !Float.isNaN(lockedYawDegrees) && entity instanceof LivingEntity;
-        if (entity instanceof LivingEntity living) {
-            hurtTimeBackup = living.hurtTime;
-            living.hurtTime = 0;
-            if (locked) {
-                yBodyRot = living.yBodyRot;
-                yBodyRotO = living.yBodyRotO;
-                yRot = living.getYRot();
-                yRotO = living.yRotO;
-                xRot = living.getXRot();
-                xRotO = living.xRotO;
-                yHeadRot = living.yHeadRot;
-                yHeadRotO = living.yHeadRotO;
-                living.yBodyRot = lockedYawDegrees;
-                living.yBodyRotO = lockedYawDegrees;
-                living.setYRot(lockedYawDegrees);
-                living.yRotO = lockedYawDegrees;
-                living.setXRot(0.0F);
-                living.xRotO = 0.0F;
-                living.yHeadRot = lockedYawDegrees;
-                living.yHeadRotO = lockedYawDegrees;
-            }
-        }
-
-        if (renderModelOnly && entity instanceof LivingEntity livingForModel && entityrenderdispatcher.getRenderer(entity) instanceof LivingEntityRenderer livingEntityRenderer) {
-            guiGraphics.pose().translate(0.0D, 1.5D, 0.0D);
-            guiGraphics.pose().mulPose(Axis.XP.rotationDegrees(180.0F));
-            var renderType = livingEntityRenderer.getModel().renderType(livingEntityRenderer.getTextureLocation(livingForModel));
-            livingEntityRenderer.getModel().renderToBuffer(guiGraphics.pose(), guiGraphics.bufferSource().getBuffer(renderType), 15728880, LivingEntityRenderer.getOverlayCoords(livingForModel, 0.0F));
-        } else {
-            if (!locked) {
-                float entityYRot = entity.yRotO + (entity.getYRot() - entity.yRotO) * partialTicks;
-                if (entity instanceof LivingEntity living) {
-                    float bodyRot = living.yBodyRotO + (living.yBodyRot - living.yBodyRotO) * partialTicks;
-                    guiGraphics.pose().mulPose(Axis.YN.rotationDegrees(-bodyRot));
-                } else {
-                    guiGraphics.pose().mulPose(Axis.YN.rotationDegrees(-entityYRot));
-                }
-            }
-            RenderSystem.runAsFancy(() ->
-                    entityrenderdispatcher.render(entity, 0.0D, 0.0D, 0.0D, 0.0F, 1.0F, guiGraphics.pose(), guiGraphics.bufferSource(), 15728880)
-            );
-        }
-
-        if (entity instanceof LivingEntity living) {
-            living.hurtTime = hurtTimeBackup;
-            if (locked) {
-                living.yBodyRot = yBodyRot;
-                living.yBodyRotO = yBodyRotO;
-                living.setYRot(yRot);
-                living.yRotO = yRotO;
-                living.setXRot(xRot);
-                living.xRotO = xRotO;
-                living.yHeadRot = yHeadRot;
-                living.yHeadRotO = yHeadRotO;
-            }
-        }
-
-        guiGraphics.flush();
-        entityrenderdispatcher.setRenderShadow(true);
-        entityrenderdispatcher.overrideCameraOrientation(null);
-        guiGraphics.pose().popPose();
-        Lighting.setupFor3DItems();
+        // Style 2 facing: slightly stronger right-facing than Style 1, still mild enough for PIP.
+        float centerX = (x0 + x1) / 2.0F;
+        float centerY = (y0 + y1) / 2.0F;
+        HudPortraitRenderer.renderFollowsMouse(
+                guiGraphics, x0, y0, x1, y1, scale, 0.0625F,
+                centerX + 28.0F, centerY - 10.0F, entity);
     }
 }
