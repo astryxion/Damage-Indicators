@@ -1,18 +1,27 @@
-modLoader="javafml" #mandatory
-loaderVersion="[36,)" #mandatory Forge for Minecraft 1.16.x
-license="GNU LESSER GENERAL PUBLIC LICENSE"
-issueTrackerURL="https://github.com/astryxion/Damage-Indicators/issues" #optional
-[[mods]] #mandatory
-modId="retrodamageindicators" #mandatory
-version="1.16.5-1.0.0" #mandatory
-displayName="Retro Damage Indicators" #mandatory
-displayURL="https://github.com/astryxion/Damage-Indicators" #optional
-authors="Astryxion" #optional
-credits="Ron0 and Alexthe668" #optional
-description='''A mob health indicator on the in-game HUD that is reminiscent of modded days long gone...'''
-[[dependencies.retrodamageindicators]]
+modLoader="javafml"
+loaderVersion="[36,)"
+license="GNU GENERAL PUBLIC LICENSE Version 3"
+issueTrackerURL="https://github.com/astryxion/Damage-Indicators/issues"
+
+[[mods]]
+modId="damageindicators"
+version="${mod_version}"
+displayName="Damage Indicators (Expanded)"
+displayURL="https://github.com/astryxion/Damage-Indicators"
+authors="Astryxion"
+credits="Astryxion, Alexthe668, Ron0, rich1051414"
+description='''A damage indicators mod with multiple visual styles. Switch between a modern Retro Damage Indicators look and the classic nostalgic Damage Indicators 1.12.2 HUD and popoffs.'''
+
+[[dependencies.damageindicators]]
 modId="forge"
-mandatory=false
+mandatory=true
 versionRange="[36.2.34,)"
+ordering="NONE"
+side="CLIENT"
+
+[[dependencies.damageindicators]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.16.5]"
 ordering="NONE"
 side="CLIENT"

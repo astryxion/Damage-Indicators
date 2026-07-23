@@ -1,11 +1,10 @@
 {
   "required": true,
-  "package": "com.github.alexmodguy.retrodamageindicators.mixins",
+  "package": "com.astryxion.damageindicators.mixins",
   "compatibilityLevel": "JAVA_8",
   "target": "@env(DEFAULT)",
-  "refmap": "retrodamageindicators.refmap.json",
-  "mixins": [
-  ],
+  "refmap": "damageindicators.refmap.json",
+  "mixins": [],
   "client": [
     "LivingEntityMixin"
   ],

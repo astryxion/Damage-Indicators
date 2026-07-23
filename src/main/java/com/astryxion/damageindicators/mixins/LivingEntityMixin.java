@@ -1,7 +1,7 @@
-package com.github.alexmodguy.retrodamageindicators.mixins;
+package com.astryxion.damageindicators.mixins;
 
-import com.github.alexmodguy.retrodamageindicators.Config;
-import com.github.alexmodguy.retrodamageindicators.RetroDamageIndicators;
+import com.astryxion.damageindicators.Config;
+import com.astryxion.damageindicators.DamageIndicators;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.network.datasync.DataParameter;
 import org.spongepowered.asm.mixin.Final;
@@ -24,15 +24,15 @@ public abstract class LivingEntityMixin {
     private float lastTrackedHealth = 0;
 
     @Inject(method = "onSyncedDataUpdated", at = @At("HEAD"))
-    public void retroDamageIndicators_onSyncedDataUpdated(DataParameter<?> key, CallbackInfo ci) {
+    public void damageindicators_onSyncedDataUpdated(DataParameter<?> key, CallbackInfo ci) {
         LivingEntity living = (LivingEntity) (Object) this;
         if (key == DATA_HEALTH_ID) {
             if (living.level != null && living.level.isClientSide()
-                    && Config.INSTANCE.damageParticlesEnabled.get()
+                    && Config.INSTANCE.active().damageParticlesEnabled.get()
                     && lastTrackedHealth != living.getHealth()) {
                 float difference = living.getHealth() - lastTrackedHealth;
                 if (!living.removed && living.isAddedToWorld()) {
-                    RetroDamageIndicators.spawnHurtParticles(living, difference);
+                    DamageIndicators.spawnHurtParticles(living, difference);
                 }
                 lastTrackedHealth = living.getHealth();
             }
