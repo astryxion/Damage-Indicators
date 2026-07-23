@@ -3,32 +3,29 @@
   "id": "${mod_id}",
   "version": "${version}",
   "name": "${mod_name}",
-  "description": "A mob health indicator on the in-game HUD that is reminiscent of modded days long gone...",
+  "description": "${mod_description}",
   "authors": [
     "${mod_authors}"
   ],
-  "credits": "${mod_credits}",
-  "contact": {},
+  "contact": {
+    "homepage": "https://github.com/astryxion/Damage-Indicators",
+    "sources": "https://github.com/astryxion/Damage-Indicators",
+    "issues": "https://github.com/astryxion/Damage-Indicators/issues"
+  },
   "license": "${mod_license}",
-  "environment": "*",
+  "icon": "assets/damageindicators/textures/mod_logo.png",
+  "environment": "client",
   "entrypoints": {
-    "main": [
-      "com.astryxion.damageindicators.DamageIndicatorsMod"
-    ],
     "client": [
-      "com.astryxion.damageindicators.DamageIndicatorsClient"
+      "com.astryxion.damageindicators.Loader"
     ]
   },
   "mixins": [
-    "${mod_id}.mixins.json",
-    {
-      "config": "${mod_id}.client.mixins.json",
-      "environment": "client"
-    }
+    "damageindicators.mixins.json"
   ],
   "depends": {
-    "fabricloader": ">=0.18.3",
-    "minecraft": "~1.21.11",
+    "fabricloader": ">=${loader_version}",
+    "minecraft": "~${minecraft_version}",
     "java": ">=21",
     "fabric-api": "*"
   }

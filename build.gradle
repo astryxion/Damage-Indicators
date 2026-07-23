@@ -1,71 +1,59 @@
 plugins {
     id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
     id 'maven-publish'
-    id 'idea'
 }
 
-version = "${minecraft_version}-${mod_version}"
-group = maven_group
+version = project.mod_version
+group = project.mod_group_id
 
 base {
-    archivesName = archives_base_name
+    archivesName = 'damageindicatorsfabric'
 }
 
-sourceSets {
-    main {
-        java {
-            exclude 'com/github/alexmodguy/retrodamageindicators/**'
-        }
-        resources {
-            exclude 'retrodamageindicators.mixins.json'
-            exclude 'META-INF/neoforge.mods.toml'
-            exclude 'META-INF/mods.toml'
-            exclude 'META-INF/accesstransformer.cfg'
-        }
-    }
-}
-
-loom {
-    splitEnvironmentSourceSets()
-
-    mods {
-        "${mod_id}" {
-            sourceSet sourceSets.main
-            sourceSet sourceSets.client
-        }
-    }
+repositories {
 }
 
 dependencies {
-    minecraft "com.mojang:minecraft:${minecraft_version}"
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings loom.officialMojangMappings()
-    modImplementation "net.fabricmc:fabric-loader:${loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+    // Same TOML config stack used by the NeoForge/Fabric 26.x ports.
+    // include() jar-in-jars them so the published mod works outside the Gradle runClient classpath.
+    include(implementation("com.electronwill.night-config:core:3.8.3"))
+    include(implementation("com.electronwill.night-config:toml:3.8.3"))
+}
+
+loom {
+    mods {
+        "${mod_id}" {
+            sourceSet sourceSets.main
+        }
+    }
 }
 
 processResources {
-    inputs.property 'version', project.version
-    inputs.property 'mod_id', mod_id
-    inputs.property 'mod_name', mod_name
-    inputs.property 'mod_license', mod_license
-    inputs.property 'mod_authors', mod_authors
-    inputs.property 'mod_credits', mod_credits
-
+    def replaceProperties = [
+            version      : project.version,
+            mod_id       : project.mod_id,
+            mod_name     : project.mod_name,
+            mod_license  : project.mod_license,
+            mod_authors  : project.mod_authors,
+            mod_description: project.mod_description,
+            minecraft_version: project.minecraft_version,
+            loader_version: project.loader_version,
+            fabric_api_version: project.fabric_api_version,
+    ]
+    inputs.properties replaceProperties
     filesMatching('fabric.mod.json') {
-        expand(
-                'version': project.version,
-                'mod_id': mod_id,
-                'mod_name': mod_name,
-                'mod_license': mod_license,
-                'mod_authors': mod_authors,
-                'mod_credits': mod_credits
-        )
+        expand replaceProperties
     }
 }
 
 tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8'
-    options.release = 21
+    it.options.release = 21
+    it.options.encoding = 'UTF-8'
 }
 
 java {
@@ -74,9 +62,15 @@ java {
     targetCompatibility = JavaVersion.VERSION_21
 }
 
+jar {
+    from('LICENSE') {
+        rename { "${it}_${project.base.archivesName.get()}" }
+    }
+}
+
 publishing {
     publications {
-        register('mavenJava', MavenPublication) {
+        create('mavenJava', MavenPublication) {
             from components.java
         }
     }
@@ -84,12 +78,5 @@ publishing {
         maven {
             url = "file://${project.projectDir}/repo"
         }
-    }
-}
-
-idea {
-    module {
-        downloadSources = true
-        downloadJavadoc = true
     }
 }

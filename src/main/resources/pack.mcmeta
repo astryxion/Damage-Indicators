@@ -1,8 +1,6 @@
 {
   "pack": {
-    "description": {
-      "text": "retrodamageindicators resources"
-    },
-    "pack_format": 15
+    "description": "damageindicators resources",
+    "pack_format": 34
   }
 }
